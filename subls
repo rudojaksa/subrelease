@@ -1,0 +1,16 @@
+#!/usr/bin/perl
+# TODO: list also time, size, no. of files
+#       maybe owner, and size of diff (no. of diff files)
+# TODO: accept .tlz, accept multiple files
+
+our $CK_="\033[90m"; # color black
+our $CD_="\033[0m";  # color default
+
+my $file = $ARGV[0];
+
+my $cmd = "tar tf '$file' | grep -G '/.*/' | sed 's:^\\([^/]*/[^/]*\\)/.*:\\1:' | sort -u";
+
+for(split /\n/,`$cmd`) {
+  s/^(.*)\/(.*?)$/$CK_$1\/$CD_$2/;
+  print "$_\n"; }
+

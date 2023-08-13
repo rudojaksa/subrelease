@@ -1,0 +1,2 @@
+skipdir: OLD doc
+exclude: #*# *.bkp* subrelease getversion

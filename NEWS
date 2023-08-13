@@ -1,0 +1,28 @@
+0.11  - version up to the mkdist 0.8...
+0.2   - code cleanup
+      - getversion uses next.pl
+      - subrelease calls identify.pl directly instead of getversion
+      - added .sub configs and VARIANT
+      - added subls
+      - added tests
+0.1   - added SUBVERSION support
+      - added AUTHORS AUTHOR CAPTION
+      - mkdist is now packnow
+
+mkdist:
+
+0.8   - automatically inert SUBVERSION,MKDATE,MKHOST into singlefile perls
+0.7   - mkdist2html bugfixes
+      - updated documentation
+      - new Makefile, better install
+      - mkdist wrong singlefile detection bugfix
+      - remove mkdist2html
+      - remove swnews
+      - next subversion printout with -sub
+      - added -version
+      - added self-usage into Makefile
+0.6   - bugfixes
+      - swnews now with hyperlinks
+0.5   - better package/project name autodetection (using getversion)
+      - support for overall news announcements (swnews)
+      - code cleanup

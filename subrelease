@@ -1,0 +1,1115 @@
+#!/usr/bin/perl
+
+our $BUILT = "2023-08-13";
+our $PACKAGE = "subrelease";
+our $VERSION = "0.11";
+our $PROJECT = "makeutils";
+our $AUTHOR = "R.Jaksa 2001,2021,2023 GPLv3";
+our $SUBVERSION = "bt";
+
+# remove NL
+our sub nonl { chomp $_[0]; return $_[0]; }
+
+# inar newgen, returns index+1 instead of simple 0/1
+# inar(\@a,$s) - check whether the string is in the array, return its idx+1 or zero (1st match)
+our sub inar {
+  my $a=$_[0];	# array ref
+  my $s=$_[1];	# string
+  for(my $i=0;$i<=$#{$a};$i++) { return $i+1 if $$a[$i] eq $s; }
+  return 0; }
+
+# clar(\@a,$s) - clear the string in the array (1st match), return its idx+1 or zero
+our sub clar {
+  my $a=$_[0];	# array ref
+  my $s=$_[1];	# string
+  for(my $i=0;$i<=$#{$a};$i++) {
+    if($$a[$i] eq $s) {
+      $$a[$i] = "";
+      return $i+1; }}
+  return 0; }
+
+sub writefile { open(O,">$_[0]") or die "$_[0]: $!"; print O $_[1]; close(O); }
+
+# ----------------------------------------------------------------------------------------------- CMD
+
+# call a command (its output in red), 2nd arg is optional echo color
+sub cmd {
+  my $c1=$CM_; $c1=$_[1] if defined $_[1]; # command call color
+  my $c2=$CR_; $c2=$_[2] if defined $_[2]; # stdout color
+  print "$c1$_[0]$CD_\n$c2"; system $_[0]; print $CD_ }
+
+# call with output to /dev/null, stderr still red
+sub cmdnull {
+  print "$CK_$_[0]$CD_\n$CR_"; system "$_[0] > /dev/null"; print $CD_ }
+
+# -------------------------------------------------------------------------------------------- COLORS
+
+our $CR_="\033[31m"; # color red
+our $CG_="\033[32m"; # color green
+our $CM_="\033[35m"; # color magenta
+our $CC_="\033[36m"; # color cyan
+our $CW_="\033[37m"; # color white
+our $CK_="\033[90m"; # color black
+our $CD_="\033[0m";  # color default
+
+# return length of string without escape sequences
+our sub esclen {
+  my $s = shift;
+  $s =~ s/\033\[[0-9]+m//g;
+  return length $s; }
+
+# ----------------------------------------------------------------------------------------- PRINTHELP
+
+# print $HELP and exit
+sub printhelp {
+  $HELP =~ s/(\n\#.*)*\n/\n/g; # skip commented-out lines
+  my $colors = "CWRDKGMB";
+  my $L="\#\#\>"; my $R="\<\#\#"; my $id=0; # private left/right brace
+  sub SBS { return "$L$_[0]$R"; } # return complete private subst. identifier
+  my $RE1 = qr/(\((([^()]|(?-3))*)\))/x; # () group, $1=withparens, $2=without
+  $STR{$id++}=$4 while $HELP=~s/([^A-Z0-9])(C[$colors])$RE1/$1.SBS("c$2$id")/e;
+  $STR{$id++}=$2 while $HELP=~s/(\n[ ]*)(-[a-zA-Z0-9\/]+(\[?[ =][A-Z]{2,}(x[A-Z]{2,})?\]?)?)([ \t])/$1.SBS("op$id").$5/e; # options lists
+  $STR{$id++}="$1$2" while $HELP=~s/\[([+-])?([A-Z]+)\]/SBS "br$id"/e; # bracketed uppercase words
+  $STR{$id++}=$2 while $HELP=~s/(\n|[ \t])(([A-Z_\/-]+[ ]?){4,})/$1.SBS("pl$id")/e; # plain uppercase words
+  $HELP =~ s/${L}pl([0-9]+)$R/$CC_$STR{$1}$CD_/g;
+  $HELP =~ s/${L}op([0-9]+)$R/$CC_$STR{$1}$CD_/g;
+  $HELP =~ s/${L}br([0-9]+)$R/\[$CC_$STR{$1}$CD_\]/g;
+  my %cc; $cc{$_}=${C.$_._} for split //,$colors;
+  $HELP =~ s/${L}cC([$colors])([0-9]+)$R/$cc{$1}$STR{$2}$CD_/g;
+  print $HELP; 
+  exit }
+
+# -------------------------------------------------------------------------------------------- CONFIG
+
+# beautify $path,$pwd
+sub beautify {
+  my $qcwd = quotemeta $_[1];								# CWD
+  my $p=$_[1]; $p=~s/\/*$//; $p=~s/[^\/]*$//; $p=~s/\/*$//; my $qp = quotemeta $p;	# parent
+  my $pp=$p; $pp=~s/\/*$//; $pp=~s/[^\/]*$//; $pp=~s/\/*$//; my $qpp = quotemeta $pp;	# grandparent
+  my $qh = quotemeta $ENV{HOME};							# home
+
+  my $fn = $_[0];
+  $fn =~ s/^$qcwd\/// if $qcwd;
+  $fn =~ s/^$qp\//..\// if $qp;
+  $fn =~ s/^$qpp\//..\/..\// if $qpp;
+  $fn =~ s/^$qh\//~\// if $qh;
+  return $fn }
+
+# -------------------------------------------------------------------------------------------- CONFIG
+
+# $file = parentcfg $init_dir,$filename; looks for config file in any parent directory
+sub parentcfg { my ($dir,$fnm) = @_;
+  while($dir ne "") {
+    my $cf = "$dir/$fnm";
+    return $cf if -f $cf;
+    $dir =~ s/[^\/]*$//;
+    $dir =~ s/\/$//; }
+  return $cf if -f $cf }
+
+# $file = homecfg $filename; just looks for the config file in home directory
+sub homecfg { my $fnm = $_[0];
+  my $cf = "$ENV{HOME}/$fnm";
+  return $cf if -f $cf }
+
+# getval $str,"keyword"; return the value for "keyword: value" line
+sub cfgval { return $2 if $_[0]=~/(^|\n)\h*$_[1]\h*:\h+(.+?)\h*(\n|$)/ }
+
+# R.Jaksa 2009,2023
+
+our $HELP=<<EOF;
+
+NAME
+    subrelease - snapshot current directory to package or subrel. archive
+
+USAGE
+    subrelease [OPTIONS] CK([PKGNAME])
+
+DESCRIPTION
+    Subrelease makes a snapshot package from the content of current
+    directory to the CG(PKGNAME.tlz) file in CG(../tgz), or CG(..) directories. The
+    PKGNAME is optional, as the version, subversion and package name are
+    autodetected by CC(getversion).  
+
+OPTIONS
+    -h  This help.
+    CK(-d)  CK(Debug.)
+    -f  Forced no-questions noninteractive mode.
+    -q  Query mode, don't write any files.
+    -c  Run CC(make clean) before packing (dangerous with faulty Makefile).
+    -R  Rewrite the release package, don\'t make subversions.
+#   -r  Release, increment the minor number. TODO
+    -s  Save a snapshot, not archive subversion, like CG(pkg-1.4c.tlz).
+-s STR  Save given variant snapshot, like CG(pkg-1.4.variant.tlz).
+-v STR  Just set a variant.
+-t DIR  Target directory instead of CG(../tgz).
+   -nb  No backups in CG(../tgz).
+   -nt  No tmp-backups in CG(/tmp/subrelease).
+   CK(-bw)  CK(Black \& white.)
+
+SUBVERSIONS
+    If the archive CG(pkg-1.4.tlz) already exists, the subversions archive
+    CG(pkg.1.4.xlz) will be created with subversions CC(1.4a), CC(1.4b) inside.
+    The subversion value is automatically incremented in its source
+    file pointed out by getversion.
+
+FILES
+    CG(pkg-1.4.tlz)   The .tar.lz release package.
+    CG(pkg-1.4c.tlz)  Subrelease c snapshot of package.
+    CG(pkg-1.4.xlz)   The .tar.lz archive containing subrelease snapshots.
+    CG(pkg-1.4.sub)CK(/)CG(pkg-1.4c)  Particular subrelease snapshot subdir.
+    CG(pkg-1.4.sub)CK(/)CG(pkg-1.4c.david)  Specific variant "david" (a branch).
+    CG(pkg-1.4c.beta.tlz)  Variant "beta" of version 1.4 of package pkg.
+    CK(anything.bkp)  CK(Backup of previous version of given file.)
+
+CONFIG
+    The CG(.subrelease) file from the home directory and from the first
+    parent directory is used as a config file for the subrelease run.  
+    Syntax is the same as for the CG(VERSION) file (see getversion -h).
+    Config-specific keywords are SUFFIX, TGZDIR and keywords ALWAYS,
+    ONRELEASE and ONSUBRELEASE to define scripts to run.  Possible
+    suffixes for the archive files are:
+
+                CK(short)           CK(full suffix)
+            CK(+-------------+-----------------------+)
+            CK(|  .)CD(tgz)CK( .xgz  |  .tar.)CD(gz)CK( .sub.tar.gz  |)
+            CK(| .)CD(tbz2)CK( .xbz2 | .tar.)CD(bz2)CK( .sub.tar.bz2 |)
+    default CK(|  .)CC(tlz)CK( .xlz  |  .tar.)CD(lz)CK( .sub.tar.lz  |)
+            CK(| .)CD(tzst)CK( .xzst | .tar.)CD(zst)CK( .sub.tar.zst |)
+            CK(+-------------+-----------------------+)
+               rel.  CK(arch.)   release   CK(archive)
+
+    Script keywords usage examples with automatic variables follows:
+    CW(ALWAYS: echo `date -I` %P %f >> /var/log/subrelease.log)
+    CW(ONSUBRELEASE: ~/util/mknews ./Changelog)
+    CW(ONRELEASE: scp %f server:/archive/%x/)
+
+    CC(%f)  filename, CC(%F) full path, CC(%d) tgzdir
+    CC(%v)  version, CC(%V) full version incl. subversion, CC(%s) subversion
+    CC(%p)  package name, CC(%P) w. version, CC(%b) variant/branch, CC(%B) w. branch
+    CC(%a)  authors, CC(%c) caption, CC(%x) project, CC(%l) language
+    CC(%%)  the % character
+
+RECOVERY
+    In case of error (No space left on device, etc.) the re-packaging
+    might be stopped in the middle.  For recovery check CC(.bkp) files in
+    the CG(../tgz) or CG(..) directories.  Before any subrelease work (before
+    the CC(make clean) etc.) copy of current dir is stored in the
+    CG(/tmp/subrelease) under a snapshot name.
+
+SEE ALSO
+    CW(getversion -h)
+
+VERSION
+    $PACKAGE-$VERSION$SUBVERSION CK($AUTHOR) CK(built $BUILT)
+
+EOF
+
+# ============================================================================================== ARGV
+$CR_=$CG_=$CC_=$CM_=$CW_=$CK_=$CD_="" if clar \@ARGV,"-bw";
+printhelp if clar \@ARGV,"-h";
+
+our   $DEBUG=1	if clar \@ARGV,"-d";
+our  $FORCED=1	if clar \@ARGV,"-f";
+my $NOUPDATE=1	if clar \@ARGV,"-k";
+our   $QUERY=1	if clar \@ARGV,"-q";
+my  $REWRITE=1	if clar \@ARGV,"-R";
+my    $CLEAN=1	if clar \@ARGV,"-c";
+my    $NOBKP=1	if clar \@ARGV,"-nb";
+my    $NOTMP=1	if clar \@ARGV,"-nt";
+
+# variant, tgzdir
+our %ARG;
+do { $ARG{variant}=$ARGV[$i]; $ARGV[$i]=""; } if $i=clar(\@ARGV,"-v") and $i<=$#ARGV;
+do {  $ARG{tgzdir}=$ARGV[$i]; $ARGV[$i]=""; } if $i=clar(\@ARGV,"-t") and $i<=$#ARGV;
+
+# snapshot
+my $SNAP;
+for($i=0;$i<$#ARGV;$i++) { if($ARGV[$i] eq "-s" and $ARGV[$i+1] ne "") {
+  $SNAP=1; $ARG{variant}=$ARGV[$i+1]; $ARGV[$i+1]=$ARGV[$i]=""; last }}
+$SNAP=1	if clar \@ARGV,"-s";
+
+# the first left is the package name
+for($i=0;$i<$#ARGV;$i++) {
+  next if $ARGV[$i] eq "";
+  next if not $ARGV[$i]=~/^[a-zA-Z]/;
+  $REQNAME=$ARGV[$i]; $ARGV[$i]=""; last }
+
+{ # CUSTOM PRINTING
+
+my $HDRLEN=20;
+
+# filename in path to green if file exists
+my sub greenfn { my $s=$_[0]; $s=~s/\/([^\/]*)$/\/$CG_$1$CD_/ if -e $s; return $s; }
+# filename in path to green if file exists and to default if not
+my sub defgrfn { my ($s,$c)=($_[0],$CD_); $c=$CG_ if -e $s; $s=~s/\/([^\/]*)$/\/$c$1$CD_/; return $s; }
+
+# return filling space for given key
+my sub hspace { return " " x ($HDRLEN - esclen $_[0]); }
+
+# print helper
+my sub prnt_ { my ($c1,$c2,$k,$v,$c) = @_;
+  return if $QUIET;
+  my $sp = hspace $k;			# spacing
+  print "$c1$sp$k$CD_: $c2$v$CD_";	# key: value
+  print " $CK_$c$CD_" if defined $c;	# comment
+  print "\n"; }				# \n
+
+# prnt "key",$var,"comment";
+our sub prnt   { prnt_ "",$CD_,@_ }				# default color
+our sub prntg  { prnt_ "",$CG_,@_ }				# green
+our sub prntfn { prnt_ "",$CK_,$_[0],defgrfn($_[1]),$_[2]; }	# filename debug
+
+# debug "key",$var,"comment";
+our sub debug	{ prnt_ $CC_,$CD_,@_ if $DEBUG }
+# filename debug
+our sub debugfn	{ prnt_ $CC_,$CK_,$_[0],greenfn($_[1]),$_[2] if $DEBUG }
+
+# print fatal error message, and exit
+our sub fatal { prnt_ $CR_,$CR_,"fatal",@_; prnt; exit }
+our sub fatal2 { print "$CR_$_[0]$CD_\n"; exit }
+
+# print the logo (three lines)
+our sub prnt_logo {
+  return if $QUIET;
+  prnt;
+  print hspace $_[0];
+  print "$CC_$_[0]$CD_$_[1]$CC_$_[2]$CD_\n";
+  prnt; }
+
+# ---------------------------------------------------------------------------------------- HASH DEBUG
+# TODO: explicit order of keys
+
+my @ORDER = ("file","language","package","project","version","subversion","next","variant",
+	     "pkgname","fullname","major","minor","mtype","delimiter","dot","pwd","config2",
+	     "config1","config","tmpdir","tgzdir","suffix","authors","caption","always",
+	     "onsubrelease","onrelease");
+
+# prel $key,$val,$msg; prints single element for debughash
+my sub prel {
+  if($_[0] eq "..")  { prnt_ $CW_,$CW_,""   ,$_[1],$_[2] }
+  elsif($_[0] eq "") { prnt_ $CW_,$CW_,$_[0],'""' ,$_[2] }
+  else		     { prnt_ $CW_,$CW_,$_[0],$_[1],$_[2] }}
+
+# debughash \%PKG,\%PKM; prints whole hash
+our sub debughash {
+  return if not $DEBUG;
+  my @order;
+  for(@ORDER) { push @order,$_ if defined $_[0]{$_} }		    # add ORDER keys if defined
+  for(sort keys %{$_[0]}) { push @order,$_ if not inar \@order,$_ } # add keys missing in ORDER
+  for my $k (@order) {
+    prel $k,$_[0]{$k},$_[1]{$k} and next if ref($_[0]{$k}) ne "ARRAY";
+    my $k2=$k;
+    for(my $i=0;$i<=$#{$_[0]{$k}};$i++) {
+      prel $k2,$_[0]{$k}[$i],$_[1]{$k}[$i];
+      $k2=".." if $k2!=1 }}}
+
+# ---------------------------------------------------------------------------------------------------
+
+# ask to confirm to proceed
+our sub proceed {
+  prnt and exit if $QUERY;				# QUERY?
+  return if $FORCED;					# FORCED?
+  my $s = "proceed? Y/n/q"; print hspace($s).$s.": ";	# prompt question
+  system "stty -icanon eol \001";
+  my $k; $k=getc(STDIN) while not $k=~/[YyNnQq\n]/;	# wait for keypress
+  system "stty icanon eol ^@";
+  print "\n" if not $k eq "\n";				# manual newline
+  if($k=~/[nNqQ]/) { prnt "","bye"; prnt; exit }	# exit
+  prnt; }						# print empty line
+
+} # R.Jaksa 2001,2023 GPLv3
+
+# wrong args check
+my @wrong;
+for $i (@ARGV) { push @wrong,$i if $i ne "" }
+fatal2 "wrong args: @wrong" if @wrong;
+
+# ============================================================================================= START
+prnt_logo "this is su","b","release";
+
+our %PKG; # package parameters key-value pairs
+our %PKK; # exact original keywords for given key
+our %PKM; # verbose message for given key
+
+# GETVERSION PARSERS
+# to-regex parser: regexes are hard to read, but simple task-specific language
+# can be parsed to regex, and such language can be OK to read...
+#
+# open tore syntax:
+# BGN~#~define KEY "[^"]*"
+# BGN~#~define KEY [^\h]*\s
+#
+# enclosed enre syntax:
+# (~#~define KEY ")([^"]*)(".*)
+
+# create regex from array
+sub tore { my @A=@_; my $s;
+  for(@A) {
+
+    # abc|cde|xyz -> (?:(?:abc)|(?:cde)|(?:xyz))
+    while(s/(([a-zA-Z0-9]+\|)+[a-zA-Z0-9]+)/__TORE__/) {
+      my $z; $z.="(?:$_)\|" for split /\|/,$1; $z=~s/\|$//;
+      s/__TORE__/(?:$z)/ }
+
+    s/~/\\h*/g;			# '~' is optional space
+    s/ /\\h+/g;			# ' ' is mandatory space
+    s/BGN/(?:^|\\n)/g;		# begin-of-line non-capture group
+    s/END/(?:\\n|\$)/g;		# end-of-line
+    $s .= $_; }
+  return $s; }
+
+# enclosed regex from array: (...) -> ((?:^|\n)...(?:\n|$))
+sub enre {
+  my $s = tore @_;
+  $s =~ s/^\(/((?:^|\\n)/;	# first element starts with (?:^|\n) start of line
+  $s =~ s/\)$/(?:\\n|\$))/;	# last element ends with (?:\n|$) end of line
+  return $s }
+
+{ # ---------------------------------------------------------------------------- PER-LASGUAGE PARSERS
+# key/value parsers: value = xyzvar(body,key) # $_[0]=body $_[1]=key
+# return: a value, or (value,used_keyname) pair
+
+our sub cvar { my ($s,$k) = @_;
+  my $re1 = tore 'BGN~#~define ',$k,' "([^"\n]*)"';		# quoted
+  my $re2 = tore 'BGN~#~define ',$k,' ([^\h]*)\s';		# plain
+  return $1 if $s =~ /$re1/;
+  return $1 if $s =~ /$re2/;
+  return }
+
+our sub perlvar { my ($s,$k) = @_;
+  my $re1 = tore 'BGN~(?:our|my\h+)?\$',$k,'~=~"([^"\n]*)"';	# quoted
+  my $re2 = tore 'BGN~(?:our|my\h+)?\$',$k,'~=~([^\h;]*)[\s;]';	# plain
+  return $1 if $s =~ /$re1/;
+  return $1 if $s =~ /$re2/;
+  return }
+
+our sub shvar { my ($s,$k) = @_;
+  my $re1 = tore 'BGN~',$k,'~=~"([^"\n]*)"';			# quoted
+  my $re2 = tore 'BGN~',$k,'~=~([^\h#;]*)[\s#;]';		# plain
+  return $1 if $s =~ /$re1/;
+  return $1 if $s =~ /$re2/;
+  return }
+
+our sub pythonvar { shvar @_ }
+
+our sub makevar { my ($s,$k) = @_;
+  my $re1 = tore 'BGN~',$k,'~:?=~"([^"\n]*)"';			# quoted
+  my $re2 = tore 'BGN~',$k,'~:?=~([^#]*?)~(?:#.*)?END';		# plain (w comment)
+  return $1 if $s =~ /$re1/;
+  return $1 if $s =~ /$re2/;
+  return }
+
+my  sub cfgre1 { return tore 'BGN~',$_[0],'~: "([^"\n]*)"' }	# quoted
+my  sub cfgre2 { return tore 'BGN~',$_[0],'~: ([^#]*?)~(?:#.*)?END' } # plain (w comment)
+our sub cfgvar { my ($s,$k) = @_;
+  my $re1 = cfgre1 $k; return $1 if $s =~ /$re1/;
+  my $re2 = cfgre2 $k; return $1 if $s =~ /$re2/;
+  return }
+
+our sub commentvar {
+  my ($s,$k) = @_;
+  my $k1 = lc $k;
+  my $k2 = ucfirst lc $k;
+  my $k3 = uc $k;
+  if($k eq "PACKAGE" or $k eq "PROJECT" or $k eq "VERSION" or $k eq "SUBVERS" or $k eq "SUBVERSION") {
+    return ($5,$1) if $s =~ /(($k1)|($k2)|($k3))\h+([^\h]*?)[\h,;]/ }
+  else {
+    return ($5,$1) if $s =~ /(($k1)|($k2)|($k3))\h+(.*?)(\n|$)/ }
+  return }
+
+# -------------------------------------------------------------------------------------------- GETVAR
+
+# checkvar "PACKAGE","package"; requires $CMD,$BODY,$MSG; fills $PKG,$PKK,$PKM
+my sub checkvar {
+  my ($NAME,$KEY) = @_;					# variable name and a PKG key
+  my ($val,$name) = &{$CMD}($BODY,$NAME);		# $val,$key = perlvar($body,"PACKAGE")
+  return if not defined $val or $val eq "";		# no $val or empty $val
+  $PKG{$KEY} = $val;					# $PKG{package} = $val
+  $PKK{$KEY} = $NAME;					# $PKK{package} = "PACKAGE"
+  if(defined $name) { $PKM{$KEY}="$MSG: $name" }	# $PKM{package} = "$msg: Package"
+  else		    { $PKM{$KEY}="$MSG: $NAME" }}	# $PKM{package} = "$msg: PACKAGE"
+
+# check all appearances of the array-type variables in config (config-only!)
+# requires $CMD,$BODY,$MSG; fills $PKG,$PKK,$PKM
+my sub checkcfg {
+  my ($NAME,$KEY) = @_;
+  my $body = $BODY; # copy!
+  my $re1 = cfgre1 $NAME;
+  my $re2 = cfgre2 $NAME;
+  my @pkg; my @pkk; my @pkm; my $ok;
+  while($body=~s/$re1/\n/ or $body=~s/$re2/\n/) {
+    push @pkg,$1;
+    push @pkk,$NAME;
+    push @pkm,"$MSG: $NAME";
+    $ok=1 }
+  return if not $ok;
+  # print ">> $KEY:"; print " [$_]" for @arr; print "\n";
+  push @{$PKG{$KEY}},@pkg;
+  push @{$PKK{$KEY}},@pkk;
+  push @{$PKM{$KEY}},@pkm; }
+
+# load $PKG{file} and read all variables from it
+our sub getvar {
+  return if not defined $PKG{file};
+  $PKG{comment} = 1 if $_[2] eq "comment";
+  local  $CMD = $_[0]; # local to be seen in checkvar
+  local $BODY = $_[1]; $BODY = `cat $PKG{file}` if not defined $_[1];
+  local  $MSG = "<- ".beautify($PKG{file},$PKG{pwd}); $MSG.=" $_[2]" if defined $_[2];
+  checkvar "PACKAGE","package";
+  checkvar "VERSION","version";
+  checkvar "SUBVERS",   "subversion";
+  checkvar "SUBVERSION","subversion";
+  checkvar "PROJECT","project";
+  checkvar "AUTHOR",   "authors";
+  checkvar "AUTHORS",  "authors";
+  checkvar "COPYRIGHT","authors";
+  checkvar "COPYLEFT", "authors";
+  checkvar "CAPTION","caption";
+  checkvar "BRANCH", "variant";
+  checkvar "VARIANT","variant";
+  return if not $PKG{config}; # the rest are config specific keywords
+  checkvar "SUFFIX","suffix";
+  checkvar "TGZDIR","tgzdir";
+  checkcfg "ONSUBRELEASE","onsubrelease"; # next are arrays = accept multiple lines
+  checkcfg "ONSUB",	  "onsubrelease";
+  checkcfg "ONRELEASE","onrelease";
+  checkcfg "ONREL",    "onrelease";
+  checkcfg "ALWAYS","always" }
+
+} # -------------------------------------------------------------------------------------------------
+
+# R.Jaksa 2001,2009,2023 GPLv3
+
+{ # SUBRELEASE CONFIG
+
+# return 1 if pathname can be used as dir for this user, 0 otherwise
+my sub dirok {
+  return 1 if not -e $_[0] or (-w $_[0] and -d $_[0]);
+  return 0 }
+
+# return the temporary backup directory, try /tmp/sub, /tmp/user-sub, /tmp/sub2...
+my sub tmpdir { my $tmp;
+  $tmp = "/tmp/subrelease";
+  return $tmp if dirok $tmp;
+  $tmp = "/tmp/$ENV{USER}-subrelease";
+  return $tmp if dirok $tmp;
+  my $i=2; do { $tmp = "/tmp/subrelease$i"; $i++ } while(not dirok $tmp);
+  return $tmp }
+
+# ---------------------------------------------------------------------------------------------------
+
+my sub pkginit {
+  $PKG{pwd} = nonl `pwd`;
+  $PKG{tgzdir} = -d "../tgz" ? "../tgz" : "..";
+  $PKM{tgzdir} = "<- default";
+  $PKG{tmpdir} = tmpdir; 
+  $PKG{delimiter} = "-";
+  $PKM{delimiter} = "<- default"; }
+
+# for parsing configs, before the real identify
+# $PKG{config} is temporal here, but permanent for VERSION file
+my sub parsecfg {
+  $PKG{config} = 1; # flag that we do parse config file (not the regular source file)
+  $PKG{file} = $_[0];
+  $PKG{language} = "cfg";
+  getvar \&cfgvar;
+  delete $PKG{config}; # reset the setup after the .subrelease config
+  delete $PKG{file};
+  delete $PKG{language} }
+
+# main
+our sub subrelease_config {
+  pkginit;
+
+  # find config files
+  my $config1 = homecfg ".subrelease";		   # 1st read these
+  my $config2 = parentcfg $PKG{pwd},".subrelease"; # 2nd override by these
+
+  # parse configs, override 1 with 2
+  parsecfg $config1 and $PKG{config1}=$config1 if defined $config1;
+  parsecfg $config2 and $PKG{config2}=$config2 if defined $config2;
+
+  # # parse the config
+  # if($cf) {
+  #   $PKG{suffix}  = getval $cfbody,"suffix";
+  #   $PKG{variant} = getval $cfbody,"variant";
+  #   $PKM{suffix}  = "<- $cf" if $PKG{suffix};
+  #   $PKM{variant} = "<- $cf" if $PKG{variant} }
+  #
+  # if($cf and not $PKG{variant}) {
+  #   $PKG{variant} = getval $cfbody,"branch";
+  #   $PKK{variant} = "branch" if $PKG{variant};
+  #   $PKM{variant} = "<- $cf: branch" if $PKG{variant} }
+
+  # beautify the variant
+  my $variant = $PKG{variant};
+  $PKG{variant} =~ s/\h/-/g; # disable unsafe whitespaces
+
+  # beautify the suffix
+  my $suffix = $PKG{suffix};
+  $PKG{suffix} =~ s/x/t/g;
+  $PKG{suffix} =~ s/^\.?sub//;
+  $PKG{suffix} =~ s/^\.?tar//;
+  $PKG{suffix} =~ s/^\.+//; 
+
+  # fix PKM
+  $PKM{variant} = "<= $variant $PKM{variant}" if $variant ne $PKG{variant};
+  $PKM{suffix}  = "<= $suffix $PKM{suffix}"   if $suffix  ne $PKG{suffix};
+
+  # no empty suffix/variant allowed
+  delete $PKG{suffix} if not $PKG{suffix};
+  delete $PKG{variant} if not $PKG{variant}; }
+
+# MAIN
+} subrelease_config;
+
+# R.Jaksa 2023 GPLv3
+prntg "config",beautify($PKG{config1},$PKG{pwd}) if defined $PKG{config1};
+prntg "config",beautify($PKG{config2},$PKG{pwd}) if defined $PKG{config2};
+
+# explicit values by CLI args (here for detection to work)
+$PKG{$_}=$ARG{$_} and $PKM{$_}="<- CLI arg" for keys %ARG;
+
+# verbose
+debugfn "current directory",$PKG{pwd};
+debugfn "target directory",$PKG{tgzdir};
+debug "tmp directory",$CG_.$PKG{tmpdir};
+prnt "variant",$PKG{variant},$PKM{variant} if defined $PKG{variant};
+prnt  "suffix",$PKG{suffix},$PKM{suffix}   if defined $PKG{suffix};
+
+# default (only set after the verbose output) 
+$PKG{suffix}="tlz" and $PKM{suffix}="<= default" if not $PKG{suffix};
+
+# manualy forced tgzdir might not exist
+fatal "target directory $PKG{tgzdir} does not exist" if not -d $PKG{tgzdir};
+
+# ========================================================================================== IDENTIFY
+{ # SUBRELEASE NAMES/FILENAMES UTILITIES, required %PKG access
+
+# parse the string to package, delimiter, version
+sub name2pkg {
+  my $name = $_[0];
+  my $sx = "(([a-z])|(rc[0-9]))?";
+  my @pdv;
+  if($name =~ /([a-zA-Z][a-zA-Z0-9._+-]*?)?([\._-]?)([0-9\.]+$sx)$/) { @pdv = ($1,$2,$3) }
+  elsif($name =~ /^[^a-zA-Z0-9]*(.*)$/) { @pdv = ($1) }
+  ($PKG{package},$PKG{delimiter},$PKG{version}) = @pdv;
+  $PKM{package} = $PKM{delimiter} = $PKM{version} = "<= $name" }
+
+# parse the version into major, dot, minor, mtype
+sub update_majorminor {
+  return if not $PKG{version};
+  my @mdm;
+  if   ($PKG{version} =~ /(.*?)([.]?)([0-9]+)$/) { @mdm = ($1,$2,$3,"09") }
+  elsif($PKG{version} =~ /(.*?)([.-]?)([a-z])$/) { @mdm = ($1,$2,$3,"az") }
+  ($PKG{major},$PKG{dot},$PKG{minor},$PKG{mtype}) = @mdm;
+  $PKM{major} = $PKM{dot} = $PKM{minor} = $PKM{mtype} = "<= $PKG{version}" }
+
+# update pkgname: package+version
+sub update_pkgname {
+  $PKG{pkgname} = $PKG{package}.$PKG{delimiter}.$PKG{version};
+  $PKM{pkgname} = "<= $PKG{package} $PKG{delimiter} $PKG{version}" }
+
+# update fullname: pkgname+subversion+variant
+sub update_fullname {
+  my $var=""; $var=".$PKG{variant}" if defined $PKG{variant};
+  $PKG{fullname} = $PKG{pkgname}.$PKG{next}.$var;
+  $PKM{fullname} = "<= $PKG{pkgname} $PKG{next} $PKG{variant}" }
+
+# ------------------------------------------------------------------------------------------ SUFFIXES
+
+# release suffix
+our sub relsx {
+  my $sx = $PKG{suffix};					# gz
+     $sx = "tar.$sx" if $PKG{suffix}=~/^[gblz]/;		# tar.gz
+     $sx = "$PKG{variant}.$sx" if defined $PKG{variant};	# variant.tar.gz
+  return ".$sx" }
+
+# subreleases archive suffix
+our sub subsx {
+  my $sx = $PKG{suffix};					# gz
+  if($PKG{suffix}=~/^[gblz]/) { $sx = "sub.tar.$sx" }		# sub.tar.gz
+  else			      { $sx =~ s/^t/x/ }		# tgz -> xgz
+  return ".$sx" }
+
+# ------------------------------------------------------------------------------ EXISTING FILES NAMES
+# return previous existing release/archive paths, relative to TGZDIR, from package and version
+
+# release and archive suffixes
+my @RSX = ("tlz","tar.lz","tzst","tar.zst","tbz2","tar.bz2","tgz","tar.gz");
+my @ASX = ("xlz","sub.tar.lz","xzst","sub.tar.zst","xbz2","sub.tar.bz2","xgz","sub.tar.gz");
+my @ADE = ("arch.tar.bz2","arch.bkp.tar.bz2"); # DEPRECATED
+my @RBP = @RSX; s/$/.bkp/ for @RBP;
+my @ABP = @ASX; s/$/.bkp/ for @ABP;
+
+# our $release = get_release; return active release file path
+# only checks variant release if variant specified
+our sub get_release {
+  my @vars = ("");
+     @vars = (".$PKG{variant}") if defined $PKG{variant}; # (".$PKG{variant}","") to check all
+  for my $var (@vars) {		# variant
+    for my $sx (@RSX,@RBP) {	# suffixes
+      for my $del ("-",".") {	# delimiters
+	my $f = "$PKG{package}$del$PKG{version}$var.$sx"; my $fn=$f;
+	   $f = "$PKG{tgzdir}/$f" if defined $PKG{tgzdir};
+	# print $f; print " *" if -f $f; print "\n";
+	return $fn if -f $f }}}}
+
+# our $archive = get_archive; return active archive path
+our sub get_archive {
+  for my $sx (@ASX,@ABP,@ADE) {
+    for my $del ("-",".") {
+      my $f = "$PKG{package}$del$PKG{version}.$sx"; my $fn=$f;
+         $f = "$PKG{tgzdir}/$f" if defined $PKG{tgzdir};
+      # print $f; print " *" if -f $f; print "\n";
+      return $fn if -f $f }}}
+
+# ----------------------------------------------------------------------------------------- TAR FILES
+
+# return ziptype for tar
+my sub ziptype {
+  if   ($PKG{suffix} =~ /zst$/) { return "--zstd" }
+  elsif($PKG{suffix} =~ /bz2$/) { return "--bzip2" }
+  elsif($PKG{suffix} =~ /gz$/)  { return "--gzip" }
+  return "--lzip" }
+
+# tar from given dir: tarfrom(inputdir,inputfileordir,outputtar)
+our sub tarfrom { my ($dir,$file,$tar,$cc) = @_; my $zip = ziptype;
+  cmd "tar cf $tar $zip -C $dir $file",$cc; }
+
+# directory tar: tardir(inputdir,outputtar)
+our sub tardir { my ($dir,$tar) = @_; my $zip = ziptype;
+  cmd "tar cf $tar $zip $dir"; }
+
+} # R.Jaksa 2001,2021,2023 GPLv3
+
+{ # GETVERSION IDENTIFY
+
+# get PKG file (and singlefile) and language from current dir, no PKM PKK
+my sub getfile {
+
+  # 1st: try explicit VERSION files
+  if   (-f "VERSION.pl"){ $PKG{language} = "perl";   $PKG{file} = "VERSION.pl"; }
+  elsif(-f  "CONFIG.pl"){ $PKG{language} = "perl";   $PKG{file} = "CONFIG.pl"; }
+  elsif(-f "VERSION.py"){ $PKG{language} = "python"; $PKG{file} = "VERSION.py"; }
+  elsif(-f  "CONFIG.py"){ $PKG{language} = "python"; $PKG{file} = "CONFIG.py"; }
+  elsif(-f "VERSION.h")	{ $PKG{language} = "c";      $PKG{file} = "VERSION.h"; }
+  elsif(-f  "CONFIG.h")	{ $PKG{language} = "c";      $PKG{file} = "CONFIG.h"; }
+  elsif(-f "VERSION")	{ $PKG{language} = "cfg";    $PKG{file} = "VERSION"; $PKG{config} = 1; }
+  elsif(-f "Makefile")	{ $PKG{language} = "make";   $PKG{file} = "Makefile"; }
+
+  # get list of all files to look further
+  my @FILES = split /\n/,`find . -maxdepth 1 -type f`;
+  s/^.\/// for @FILES;
+
+  # 2nd: singlefile if there is only a single file present
+  if(not defined $PKG{file} and $#FILES==0) { 
+    $PKG{file} = $PKG{singlefile} = $FILES[0];
+    my $line1 = `head -n 1 '$FILES[0]'`;
+    $PKG{language} = "perl"   if $line1 =~ /^\#!\h*\/.*\/perl/;
+    $PKG{language} = "python" if $line1 =~ /^\#!\h*\/.*\/python/;
+    $PKG{language} = "sh"     if $line1 =~ /^\#!\h*\/.*\/((ba)|(z))?sh/;
+    $PKG{language} = "c"      if $FILES[0] =~ /\.[ch]$/;
+    $PKG{language} = "perl"   if $FILES[0] =~ /\.pl$/;
+    $PKG{language} = "python" if $FILES[0] =~ /\.py$/;
+    $PKG{language} = "sh"     if $FILES[0] =~ /\.sh$/; }
+
+  # look for the 1st perl file with the "$PACKAGE="
+  if(not defined $PKG{file}) {
+    for my $f (@FILES) {
+      my $line1 = `head -n 1 '$f'`;
+      my $pl = 0;
+         $pl = 1 if $f =~ /\.pl$/;
+         $pl = 1 if $line1 =~ /^\#!\h*\/.*\/perl/;
+      next if not $pl;
+      next if not `cat '$f'` =~ /\$PACKAGE\h*=/;
+      $PKG{file} = $f;
+      $PKG{language} = "perl";
+      last; }}}
+
+# get all variables from given PKG{file}, needs file and language
+my sub getvars {
+
+  getvar \&perlvar   if $PKG{language} eq "perl";
+  getvar \&pythonvar if $PKG{language} eq "python";
+  getvar \&shvar     if $PKG{language} eq "sh";
+  getvar \&cvar	     if $PKG{language} eq "c";
+  getvar \&cfgvar    if $PKG{language} eq "cfg";
+  getvar \&makevar   if $PKG{language} eq "make";
+
+  # from header-comment
+  if((not defined $PKG{package} or
+      not defined $PKG{version} or
+      not defined $PKG{authors}) and defined $PKG{file}) {
+    my $s = `head $PKG{file}`;
+    my $body;
+
+    if($PKG{language} eq "c") {
+      while($s=~s/\/\*(.*?)\*\///)   { $body.="$1\n" }	# we don't avoid in-strings "/*...*/" match
+      while($s=~s/\/\/(.*?)(\n|$)//) { $body.="$1\n" }}	# detto
+    else {
+      while($s=~s/#(.*?)(\n|$)//)    { $body.="$1\n" }}	# detto
+
+    getvar \&commentvar,$body,"comment";
+
+    # (c) Author hack
+    if(not defined $PKG{authors}) {
+      $PKG{authors} = $2 if $body=~/(\([Cc]\))\h+(.*?)\h*\n/;
+      $PKM{authors} = "<- $PKG{file} comment: $1" }}
+
+  # singlefile PKG from filename
+  if(not defined $PKG{package} and defined $PKG{singlefile}) {
+    $PKG{package} = $PKG{file};
+    $PKG{package} =~ s/\..*$//;
+    $PKM{package} = "<= $PKG{file} filename"; }}
+
+# identify project from pwd or package
+my sub getproject {
+
+  # derived from parent directory
+  if(not defined $PKG{project}) {
+    if($PKG{pwd} =~ /\/([^\/]+)\/[^\/]+$/) {
+      $PKG{project} = "$1";
+      $PKM{project} = "derived from CWD: $PKG{pwd}"; }}
+
+  # copy the package name
+  if(not defined $PKG{project} and defined $PKG{package}) {
+    $PKG{project} = "$PKG{package}";
+    $PKM{project} = "derived from $PKG{package}"; }}
+
+# main
+our sub getversion_identify {
+  getfile;
+  getvars;
+  getproject;
+  update_pkgname }
+
+# MAIN
+} getversion_identify;
+
+# R.Jaksa 2001,2021,2023 GPLv3
+
+# explicit values by CLI args (again, here to override autodetected)
+$PKG{$_}=$ARG{$_} and $PKM{$_}="<- CLI arg" for keys %ARG;
+
+prnt "autodetected",$PKG{pkgname},$PKG{project};
+debug "singlefile",$CG_.$PKG{singlefile} if defined $PKG{singlefile};
+
+# =========================================================================== DECIDE THE PACKAGE NAME
+
+my $pkgname = $PKG{pkgname}; # just remember
+
+# requested name
+name2pkg $REQNAME if $REQNAME;
+
+# defaults: "pkg-0.1"
+$PKG{package} = "pkg" if not defined $PKG{package};
+$PKG{version} = "0.1" if not defined $PKG{version};
+
+# pkgname update and major/minor (major will be used by ls at the end)
+update_pkgname; update_majorminor;
+
+# verbose
+prnt "new name",$PKG{pkgname},"<- $pkgname" if $PKG{pkgname} ne $pkgname;
+
+# ================================================================ RELEASE VS ARCHIVE LOGIC AND FILES
+
+# whether to RELEASE = if file not found or if forced, existing vs. new
+our $release = get_release; # existing one
+our $RELEASE = $PKG{pkgname}.relsx if not $release or $REWRITE; # new: pkg-1.4.tlz or pkg-1.4.variant.tlz
+
+# whether to ARCHIVE = if not RELEASE, existing vs. new
+our $archive = get_archive if not $RELEASE; # existing one
+our $ARCHIVE = $PKG{pkgname}.subsx if not $RELEASE; # new: pkg-1.4.xlz (no variant!)
+
+debugfn "old package file","$PKG{tgzdir}/$release" if $release;
+debugfn "new package file","$PKG{tgzdir}/$RELEASE" if $RELEASE;
+debugfn "old sub. archive","$PKG{tgzdir}/$archive" if $archive;
+debugfn "new sub. archive","$PKG{tgzdir}/$ARCHIVE" if $ARCHIVE and $ARCHIVE ne $archive;
+
+# ============================================================================================== NEXT
+# this works directly on global %PKG
+
+# get_next_sub $release,$archive; inspects release/archive files (relative to tgzdir)
+# to get next subversion, by looking into archive or by incrementing saved subversion value
+sub get_next_sub {
+  my $release = "$PKG{tgzdir}/$_[0]";
+  my $archive = "$PKG{tgzdir}/$_[1]";
+
+  # default first member of archive
+  my $next = "a";
+     $next = "0" if $PKG{mtype} eq "az"; 
+
+  # reset subversion
+  if($PKG{subversion} =~ /^reset (.*)$/) {
+    $PKG{subversion} = $1;
+    $PKG{next} = "";
+    $PKM{next} = "<= $1 reset";
+    return }
+
+  # archive does not exist, but we have saved subversion number
+  if(not -f $archive and defined $PKG{subversion} and $PKG{subversion}) {
+    my $next = $PKG{subversion};
+    $PKG{next} = $next;
+    $PKG{next} ++;
+    $PKM{next} = "<= $next $PKM{subversion}";
+    return }
+
+  # archive does not exist, but release package does, start subreleases with "a" or "0"
+  if(not -f $archive and -f $release) {
+    $PKG{next} = $next;
+    $PKM{next} = "<= $release";
+    return }
+
+  # nor archive nor release package exist, none next
+  if(not -f $archive) { return }
+
+  # archive exists, get list of subversions from the list of files in archive
+  my @a;
+  for(sort split /\n/,`tar tf $archive`) { push @a,$1 if /^[^\/]+\/([^\/]+)\/?$/ }
+  # print "subs: @a\n";
+
+  # find the biggest subbversion in the list
+  $next = $1 if @a and @a[$#a]=~/$PKG{delimiter}$PKG{version}(.*?)(\.|$)/;
+  # print " max: $next\n";
+
+  # init/change $next to $PKG{subversion} if defined and bigger then in archive
+  $next = $PKG{subversion} if defined $PKG{subversion} and $PKG{subversion} and $PKG{subversion} gt $next;
+
+  # find the first free subversion (but bigger then the current $next)
+  my sub inarch { my $v=quotemeta $_[1]; for(@{$_[0]}) { return 1 if /$v/ }}
+  $next++ while inarch \@a,"$PKG{delimiter}$PKG{version}$next";
+
+  $PKG{next} = $next;
+  $PKM{next} = "<- $archive"; }
+
+# R.Jaksa 2001,2023 GPLv3
+
+# reset subversion if we do RELEASE and there is no ARCHIVE
+if($RELEASE and not $archive and defined $PKG{subversion} and $PKG{subversion}) {
+  prnt "subversion reset","from $PKG{subversion}";
+  $PKG{subversion} = "reset $PKG{subversion}"; } # to reset SUBVERS value in config
+
+# obtain the next subversion and subdir - look into archive file
+get_next_sub $release,$archive;
+update_fullname;
+our $mem = $PKG{fullname}; # subversion archive member dir
+
+# explicit snapshot, requires PKG{next}
+if(defined $SNAP) {
+  $RELEASE = "$PKG{pkgname}$PKG{next}".relsx;
+  undef $ARCHIVE; undef $archive }
+
+# verbose: we have either $RELEASE or $ARCHIVE, both undef are not possible
+if($RELEASE) {
+  prntfn $SNAP?"snapshot":"release","$PKG{tgzdir}/$RELEASE"; }
+else	{
+  prnt "subrelease $CC_$PKG{next}","$mem","(-R to rewrite $PKG{pkgname})";
+  my $s = "<- $PKG{tgzdir}/$CG_$archive" if $archive and $archive ne $ARCHIVE;
+  prntfn "subversions archive","$PKG{tgzdir}/$ARCHIVE",$s; }
+
+# here PKG is complete, including PKG{next}
+debughash \%PKG,\%PKM;
+
+# ============================================================================== TARGET DIRS AND TARS
+
+# target (extract) directory
+my $dir = "$PKG{pkgname}";					  # release pkg-1.4
+   $dir = "$PKG{pkgname}.$PKG{variant}" if defined $PKG{variant}; # release pkg-1.4.variant
+   $dir = "$PKG{pkgname}.sub" if $ARCHIVE;			  # archive pkg-1.4.sub
+
+# target tar file
+my $tar = $RELEASE;						  # release
+   $tar = $ARCHIVE if $ARCHIVE;					  # archive
+
+# avoid extracting to existing directory (left one)
+fatal "can't continue while $PKG{tgzdir}/$dir is present" if -e "$PKG{tgzdir}/$dir";
+
+# ===================================================================================== SCRIPTS LOGIC
+
+# delete unneded scripts
+delete $PKG{onrelease} if not $RELEASE;	# on subrelease dont run release scripts
+delete $PKG{onsubrelease}  if $RELEASE;	# on release dont run subrelease scripts
+
+# count scripts
+my $nscripts=0; $nscripts++ for @{$PKG{always}},@{$PKG{onsubrelease}},@{$PKG{onrelease}};
+
+# scripts announcements, 1st always scripts, then either subrelease or release
+prnt "will run" if $nscripts>1;
+if(defined $PKG{always})	{ prnt "script","$CC_$_$CD_" for @{$PKG{always}}}
+if(defined $PKG{onsubrelease})	{ prnt "subrelease script","$CC_$_$CD_" for @{$PKG{onsubrelease}}}
+if(defined $PKG{onrelease})	{ prnt "release script","$CC_$_$CD_" for @{$PKG{onrelease}}}
+
+# ==================================================================================== ASK TO PROCEED
+proceed;
+# ============================================================================ RE/WRITE PACKAGE FILES
+
+# backup first: current directory as is before anything into /tmp just for case
+if(not $NOTMP) {
+  (my $this=$PKG{pwd}) =~ s/^.*\///;
+  cmd "mkdir -p $PKG{tmpdir}",$CK_ if not -d $PKG{tmpdir};
+  tarfrom "..",$this,"$PKG{tmpdir}/$PKG{pkgname}$PKG{next}".relsx,$CK_ }
+
+# make clean: only if requested and Makefile with a clean rule exists
+if($CLEAN and -f "Makefile" and not `make -n clean 2>&1` =~ /No rule to make target 'clean'/) {
+  cmdnull "make clean" }
+
+# cp command
+my $cp = "cp -a";				# OK for local disk
+   $cp = "cp -dR --preserve=timestamps,links";	# different UIDs over NFS need this
+
+# here, go to TGZDIR
+chdir $PKG{tgzdir}; print "${CK_}cd $PKG{tgzdir}$CD_\n";
+
+# if release file exists and will be rewritten, then make a backup
+cmd "$cp $release $release.bkp" if $REWRITE and $release and not $NOBKP;
+
+# DEPRECATED archive backup
+if(   -f "$PKG{pkgname}.arch.bkp.tar.bz2") {
+  cmd "mv $PKG{pkgname}.arch.bkp.tar.bz2 $PKG{pkgname}.arch.tbz2.bkp" }
+
+# unpack existing archive
+if($archive) {
+  cmd "tar xf $archive";					# OK for .xlz and .tar.bz2 too
+  cmd "mv $PKG{pkgname}.arch $dir" if -d "$PKG{pkgname}.arch";	# fix DEPRECATED .arch
+  fatal2 "subrelease: directory $PKG{tgzdir}/$dir not created, can't continue\n" if not -e $dir; # dir must exist here
+  cmd "mv $archive $archive.bkp",$CK_ if not $NOBKP }		# make a (single) backup
+elsif($ARCHIVE and not defined $PKG{singlefile}) {
+  cmd "mkdir $dir"; }						# or we need new archive directory
+
+# singlefile needs specific subdir as well
+cmd "mkdir -p $dir/$mem" if defined $PKG{singlefile} and ($archive or $ARCHIVE);
+
+# copy current dir as a new archive member
+if($ARCHIVE) {
+  if(defined $PKG{singlefile}) { cmd "$cp $PKG{pwd}/$PKG{singlefile} $dir/$mem"; }
+  else		      	       { cmd "$cp $PKG{pwd} $dir/$mem"; }}
+
+# or copy a release
+cmd "$cp $PKG{pwd} $dir" if $RELEASE and not defined $PKG{singlefile};
+
+# singlefile tar
+if($RELEASE and defined $PKG{singlefile}) { tarfrom $PKG{pwd},$PKG{singlefile},$tar }
+
+# or regular tar
+if(not $RELEASE or not defined $PKG{singlefile}) { # either RELEASE or ARCHIVE or singlefile ARCHIVE
+  fatal2 "directory $PKG{tgzdir}/$dir doesn't exists, can't continue\n" if not -e $dir; # dir must exist here
+  tardir $dir,$tar }
+
+# remove the packaging dir
+cmd "rm -rf $dir",$CK_ if -d $dir;
+
+# return back to orig CWD
+print "${CK_}cd .$CD_\n";
+chdir $PKG{pwd};
+print "can't return back to $PKG{pwd} to run scripts\n" if $nscripts and $PKG{pwd} ne nonl(`pwd`);
+
+
+# resolve automatic variables in the script command line
+our sub resolve {
+  my $cmd = $_[0];
+  $cmd =~ s/%%/__%__/g;
+  
+  $cmd =~ s/%f/$PKG{filename}/g;
+  $cmd =~ s/%F/$PKG{tgzdir}\/$PKG{filename}/g;
+  $cmd =~ s/%d/$PKG{tgzdir}/g;
+
+  $cmd =~ s/%v/$PKG{version}/g;
+  my $full = "$PKG{version}$PKG{next}"; $full.=".$PKG{variant}" if defined $PKG{variant};
+  $cmd =~ s/%V/$full/g;
+  $cmd =~ s/%s/$PKG{next}/g; # next is actually the subversion to be used in the result
+
+  $cmd =~ s/%p/$PKG{package}/g;
+  $cmd =~ s/%P/$PKG{pkgname}/g;
+  $cmd =~ s/%b/$PKG{variant}/g;
+  $cmd =~ s/%B/$PKG{fullname}/g;
+
+  $cmd =~ s/%a/$PKG{authors}/g;
+  $cmd =~ s/%c/$PKG{caption}/g;
+  $cmd =~ s/%x/$PKG{project}/g;
+  $cmd =~ s/%l/$PKG{language}/g;
+
+  $cmd =~ s/__%__/%/g;
+  return $cmd }
+if($nscripts) {
+  $PKG{filename} = $tar; # needed for %f
+  cmd resolve($_),$CC_,$CD_ for @{$PKG{always}},@{$PKG{onsubrelease}},@{$PKG{onrelease}}}
+
+# ================================================================================ REWRITE SUBVERSION
+
+{ # SUBVERSION REWRITE
+
+# the SUBVERS(ION) keyword plus whitespaces and begine of line
+my $SU = qr/\h*SUBVERS(ION)?\h*?/;
+
+# replace SUBVERSION=a by SUBVERSION=b, requires %PKG
+our sub rewrite_sub {
+  my $s = `cat $PKG{file}`;
+  my $s0 = $s;
+  my $next = $PKG{next};
+
+  # comments have priority, otherwise the language will match
+  if($PKG{comment}) {
+    my $re = tore '( (?:(?:SUBVERS(?:ION))|(?:[Ss]ubvers(?:ion))) )([a-z0-9\.]*?)([^a-z0-9\.])';
+    $s =~ s/$re/$1$next$3/ }
+
+  # we prefer Makefiles
+  elsif($PKG{file} eq "Makefile") {
+    my $re = enre '(~SUBVERS(?:ION)?~:?=~)([^#]*?)(~(?:#.*)?)';		# any
+    $s =~ s/$re/$1$next$3/ }
+
+  # universal configs still before languages
+  elsif($PKG{language} eq "cfg") {
+    my $re = enre '(~SUBVERS(?:ION)?~: )([^#]*?)(~(?:#.*)?)';		# any
+    $s =~ s/$re/$1$next$3/ }
+
+  elsif($PKG{language} eq "c") {
+    my $re1 = enre '(~#~define SUBVERS(?:ION)? ")([^"]*)(".*)';		# quoted
+    my $re2 = enre '(~#~define SUBVERS(?:ION)?\h?)(~)';			# empty!
+    my  $ok = $s=~s/$re1/$1$next$3/;
+              $s=~s/$re2/$1"$next"$2/ if not $ok; }
+
+  elsif($PKG{language} eq "perl") {
+    my $re1 = enre '(~(?:our|my\h+)?\$SUBVERS(?:ION)?~=~")([^"]*)(".*)'; # quoted
+    my $re2 = enre '(~(?:our|my\h+)?\$SUBVERS(?:ION)?~=~)([^\h;]*)(.*?)'; # plain
+    my  $ok = $s=~s/$re1/$1$next$3/;
+              $s=~s/$re2/$1$next$3/ if not $ok; }
+
+  elsif($PKG{language} eq "sh" or $PKG{language} eq "python") {
+    my $re1 = enre '(~SUBVERS(?:ION)?~=~")([^"]*)(".*)';		# quoted
+    my $re2 = enre '(~SUBVERS(?:ION)?~=~)([^\h#;]*)(.*?)';		# plain
+    my  $ok = $s=~s/$re1/$1$next$3/;
+              $s=~s/$re2/$1$next$3/ if not $ok; }
+
+  # nothing rewriten
+  return if $s eq $s0;
+
+  # make copy of orig version to tmpdir
+  cmd "mkdir -p $PKG{tmpdir}",$CK_ if not -d $PKG{tmpdir};
+  cmd "$cp $PKG{file} $PKG{tmpdir}",$CK_;
+
+  # verbose
+  my $from = $PKG{subversion}; $from = '""' if $PKG{subversion} eq "";
+  my   $to = $PKG{next};         $to = '""' if $PKG{next} eq "";
+  print "${CK_}rewrite$CD_ $CG_$PKG{file}$CK_:$PKK{subversion}$CD_ $from $CK_->$CD_ $CC_$to$CD_\n";
+
+  # rewrite SOURCE
+  writefile $PKG{file},$s if -f $PKG{file}; }
+
+} # R.Jaksa 2022 GPLv3
+
+rewrite_sub if not $NOTMP
+  and defined $PKG{file} and -f $PKG{file}
+  and $PKG{subversion} ne $PKG{next};
+
+# ===================================================================================== PRINT SUMMARY
+
+my $ls = "ls -ld";
+   $ls = "ll -d -m4" if `which ll`;
+my $cmd = "$ls $PKG{tgzdir}/$PKG{package}$PKG{delimiter}$PKG{major}$PKG{dot}*";
+
+print "$CM_$cmd$CD_\n\n$CR_";
+system $cmd;
+print "$CD_\n";
+
+# ====================================================================== R.Jaksa 2001,2021,2023 GPLv3

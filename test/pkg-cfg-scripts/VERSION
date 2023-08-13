@@ -1,0 +1,24 @@
+# tests for VERSION cfg-style variables and for scripts
+
+PACKAGE: pkg-cfg
+VERSION: 1.13
+AUTHORS: Author1, Author2, 2010
+
+ALWAYS: true          filename: %%f = %f
+ALWAYS: true         full path: %%F = %F
+ALWAYS: true            tgzdir: %%d = %d
+
+ALWAYS: true           version: %%v = %v
+ALWAYS: true      full version: %%V = %V
+ALWAYS: true        subversion: %%s = %s
+
+ALWAYS: true           package: %%p = %p
+ALWAYS: true      package name: %%P = %P
+ALWAYS: true    variant/branch: %%b = %b
+ALWAYS: true         full name: %%B = %B
+
+ALWAYS: true           authors: %%a = %a
+ALWAYS: true           caption: %%c = %c
+ALWAYS: true           project: %%x = %x
+ALWAYS: true          language: %%l = %l
+
