@@ -4,14 +4,11 @@
 Simple tool to snapshot current directory to the package file or into
 subrelease archive.
 
-[[TOC]]
-
 #### Story
 
 I have used a packing script since around 2000.  First it was a few lines shell
-script, later a big one with html generator, then small again... then the svn
-came, then git, and I was thinking that I will not need such script anymore,
-but I found I still use it.
+script, later a big one with html generator, now small again.  I still use it
+today, even alongside git.
 
 The inspiration came when somebody told me that compressing a file once or
 ten-times is the same.
@@ -36,7 +33,8 @@ Subrelease itself does:
 3. saves package snapshot into archive or a release file (automatically),
 4. increments subrelease variable value if needed (automatically).
 
-![](doc/sshot.png)
+<!-- ![](doc/sshot.png)-->
+<img src=doc/sshot.png/ width=750px>
 
 #### Archive files
 
