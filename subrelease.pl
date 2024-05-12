@@ -49,9 +49,9 @@ CONFIG
     The CG(.subrelease) file from the home directory and from the first
     parent directory is used as a config file for the subrelease run.  
     Syntax is the same as for the CG(VERSION) file (see getversion -h).
-    Config-specific keywords are SUFFIX, TGZDIR and keywords ALWAYS,
-    ONRELEASE and ONSUBRELEASE to define scripts to run.  Possible
-    suffixes for the archive files are:
+    Config-specific keywords are SUFFIX, TGZDIR, EXCLUDE and keywords
+    ALWAYS, ONRELEASE and ONSUBRELEASE to define scripts to run.
+    Possible suffixes for the archive files are:
 
                 CK(short)           CK(full suffix)
             CK(+-------------+-----------------------+)
@@ -62,7 +62,7 @@ CONFIG
             CK(+-------------+-----------------------+)
                rel.  CK(arch.)   release   CK(archive)
 
-    Script keywords usage examples with automatic variables follows:
+    Examples of scripts defintion with automatic variables:
     CW(ALWAYS: echo `date -I` %P %f >> /var/log/subrelease.log)
     CW(ONSUBRELEASE: ~/util/mknews ./Changelog)
     CW(ONRELEASE: scp %f server:/archive/%x/)
@@ -72,6 +72,11 @@ CONFIG
     CC(%p)  package name, CC(%P) w. version, CC(%b) variant/branch, CC(%B) w. branch
     CC(%a)  authors, CC(%c) caption, CC(%x) project, CC(%l) language
     CC(%%)  the % character
+
+    The EXCLUDE allows to exclude specified files from being archived.
+    Exclude patterns are space separated glob patterns, can be quoted
+    with double quotes:
+    CW(EXCLUDE: .git *.png "copy of *")
 
 RECOVERY
     In case of error (No space left on device, etc.) the re-packaging
@@ -251,6 +256,26 @@ if(defined $PKG{always})	{ prnt "script","$CC_$_$CD_" for @{$PKG{always}}}
 if(defined $PKG{onsubrelease})	{ prnt "subrelease script","$CC_$_$CD_" for @{$PKG{onsubrelease}}}
 if(defined $PKG{onrelease})	{ prnt "release script","$CC_$_$CD_" for @{$PKG{onrelease}}}
 
+# =========================================================================================== EXCLUDE
+# include exclude.pl
+
+$PKG{exclude} = parse_excluded $PKG{exclude};
+
+# check applicability of exclude commands
+my %valid = valid_excluded $PKG{exclude};
+debugfn "exclude",print_excluded($PKG{exclude},\%valid) if @{$PKG{exclude}} and $DEBUG;
+
+$PKG{exclude} = filter_excluded $PKG{exclude},\%valid;
+prntr "exclude","@{$PKG{exclude}}" if @{$PKG{exclude}} and not $DEBUG;
+
+# additional tar options (to exclude by glob pattern)
+our $TAROPT;
+for my $s (@{$PKG{exclude}}) {
+  if($s=~/[\h\*\?\\]/) { $TAROPT .= "--exclude='$s' " }
+  else		       { $TAROPT .= "--exclude=$s " }}
+
+debugfn "tar options",$TAROPT if $TAROPT and $DEBUG;
+
 # ==================================================================================== ASK TO PROCEED
 proceed;
 # ============================================================================ RE/WRITE PACKAGE FILES
@@ -337,4 +362,4 @@ print "$CM_$cmd$CD_\n\n$CR_";
 system $cmd;
 print "$CD_\n";
 
-# ====================================================================== R.Jaksa 2001,2021,2023 GPLv3
+# ================================================================= R.Jaksa 2001,2021,2023,2024 GPLv3

@@ -1,7 +1,7 @@
 # GETVERSION PARSERS
 # include tore.pl
 
-{ # ---------------------------------------------------------------------------- PER-LASGUAGE PARSERS
+{ # ---------------------------------------------------------------------------- PER-LANGUAGE PARSERS
 # key/value parsers: value = xyzvar(body,key) # $_[0]=body $_[1]=key
 # return: a value, or (value,used_keyname) pair
 
@@ -91,26 +91,28 @@ our sub getvar {
   local  $CMD = $_[0]; # local to be seen in checkvar
   local $BODY = $_[1]; $BODY = `cat $PKG{file}` if not defined $_[1];
   local  $MSG = "<- ".beautify($PKG{file},$PKG{pwd}); $MSG.=" $_[2]" if defined $_[2];
-  checkvar "PACKAGE","package";
-  checkvar "VERSION","version";
-  checkvar "SUBVERS",   "subversion";
-  checkvar "SUBVERSION","subversion";
-  checkvar "PROJECT","project";
-  checkvar "AUTHOR",   "authors";
-  checkvar "AUTHORS",  "authors";
-  checkvar "COPYRIGHT","authors";
-  checkvar "COPYLEFT", "authors";
-  checkvar "CAPTION","caption";
-  checkvar "BRANCH", "variant";
-  checkvar "VARIANT","variant";
-  return if not $PKG{config}; # the rest are config specific keywords
-  checkvar "SUFFIX","suffix";
-  checkvar "TGZDIR","tgzdir";
-  checkcfg "ONSUBRELEASE","onsubrelease"; # next are arrays = accept multiple lines
-  checkcfg "ONSUB",	  "onsubrelease";
-  checkcfg "ONRELEASE","onrelease";
-  checkcfg "ONREL",    "onrelease";
-  checkcfg "ALWAYS","always" }
+  # ------- VARIABLE -------- KEY -----------
+  checkvar "PACKAGE",	   "package";
+  checkvar "VERSION",	   "version";
+  checkvar "SUBVERS",	   "subversion";
+  checkvar "SUBVERSION",   "subversion";
+  checkvar "PROJECT",	   "project";
+  checkvar "AUTHOR",	   "authors";
+  checkvar "AUTHORS",	   "authors";
+  checkvar "COPYRIGHT",	   "authors";
+  checkvar "COPYLEFT",	   "authors";
+  checkvar "CAPTION",	   "caption";
+  checkvar "BRANCH",	   "variant";
+  checkvar "VARIANT",	   "variant";
+  return if not $PKG{config};		   # the rest are config specific keywords
+  checkvar "SUFFIX",	   "suffix";
+  checkvar "TGZDIR",	   "tgzdir";
+  checkcfg "ONSUBRELEASE", "onsubrelease"; # next are checkcfg arrays = accept multiple lines
+  checkcfg "ONSUB",	   "onsubrelease";
+  checkcfg "ONRELEASE",	   "onrelease";
+  checkcfg "ONREL",	   "onrelease";
+  checkcfg "ALWAYS",	   "always";
+  checkcfg "EXCLUDE",	   "exclude" }
 
 } # -------------------------------------------------------------------------------------------------
 

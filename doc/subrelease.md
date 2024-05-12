@@ -44,9 +44,9 @@ autodetected by getversion.
         The .subrelease file from the home directory and from the first
         parent directory is used as a config file for the subrelease run.  
         Syntax is the same as for the VERSION file (see getversion -h).
-        Config-specific keywords are SUFFIX, TGZDIR and keywords ALWAYS,
-        ONRELEASE and ONSUBRELEASE to define scripts to run.  Possible
-        suffixes for the archive files are:
+        Config-specific keywords are SUFFIX, TGZDIR, EXCLUDE and keywords
+        ALWAYS, ONRELEASE and ONSUBRELEASE to define scripts to run.
+        Possible suffixes for the archive files are:
     
                     short           full suffix
                 +-------------+-----------------------+
@@ -57,7 +57,7 @@ autodetected by getversion.
                 +-------------+-----------------------+
                    rel.  arch.   release   archive
     
-        Script keywords usage examples with automatic variables follows:
+        Examples of scripts defintion with automatic variables:
         ALWAYS: echo `date -I` %P %f >> /var/log/subrelease.log
         ONSUBRELEASE: ~/util/mknews ./Changelog
         ONRELEASE: scp %f server:/archive/%x/
@@ -67,6 +67,11 @@ autodetected by getversion.
         %p  package name, %P w. version, %b variant/branch, %B w. branch
         %a  authors, %c caption, %x project, %l language
         %%  the % character
+    
+        The EXCLUDE allows to exclude specified files from being archived.
+        Exclude patterns are space separated glob patterns, can be quoted
+        with double quotes:
+        EXCLUDE: .git *.png "copy of *"
 
 ### RECOVERY
         In case of error (No space left on device, etc.) the re-packaging
@@ -79,5 +84,5 @@ autodetected by getversion.
 getversion -h
 
 ### VERSION
-subrelease-0.11bt R.Jaksa 2001,2021,2023 GPLv3 built 2023-08-13
+subrelease-0.12 R.Jaksa 2001,2021,2023 GPLv3 built 2024-05-10
 

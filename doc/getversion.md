@@ -88,5 +88,5 @@ examination of present configuration files, or directory names.
 subrelease -h
 
 ### VERSION
-subrelease-0.11bt R.Jaksa 2001,2021,2023 GPLv3 (built 2023-08-13)
+subrelease-0.12 R.Jaksa 2001,2021,2023 GPLv3 (built 2024-05-10)
 

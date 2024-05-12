@@ -87,12 +87,14 @@ my sub ziptype {
   elsif($PKG{suffix} =~ /gz$/)  { return "--gzip" }
   return "--lzip" }
 
+# TODO here add tar exclude options
+
 # tar from given dir: tarfrom(inputdir,inputfileordir,outputtar)
 our sub tarfrom { my ($dir,$file,$tar,$cc) = @_; my $zip = ziptype;
-  cmd "tar cf $tar $zip -C $dir $file",$cc; }
+  cmd "tar cf $tar $TAROPT$zip -C $dir $file",$cc; }
 
 # directory tar: tardir(inputdir,outputtar)
 our sub tardir { my ($dir,$tar) = @_; my $zip = ziptype;
-  cmd "tar cf $tar $zip $dir"; }
+  cmd "tar cf $tar $TAROPT$zip $dir"; }
 
 } # R.Jaksa 2001,2021,2023 GPLv3

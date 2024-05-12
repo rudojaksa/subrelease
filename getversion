@@ -1,11 +1,19 @@
 #!/usr/bin/perl
+# getversion generated from subrelease-0.12/getversion.pl 2024-05-10
 
-our $BUILT = "2023-08-13";
+# included ".built.getversion.pl"
+our $BUILT = "2024-05-10";
+# end ".built.getversion.pl"
+
+# included ".version.pl"
 our $PACKAGE = "subrelease";
-our $VERSION = "0.11";
+our $VERSION = "0.12";
 our $PROJECT = "makeutils";
 our $AUTHOR = "R.Jaksa 2001,2021,2023 GPLv3";
-our $SUBVERSION = "bt";
+our $SUBVERSION = "";
+# end ".version.pl"
+
+# included "support.pl"
 
 # remove NL
 our sub nonl { chomp $_[0]; return $_[0]; }
@@ -115,6 +123,7 @@ sub homecfg { my $fnm = $_[0];
 sub cfgval { return $2 if $_[0]=~/(^|\n)\h*$_[1]\h*:\h+(.+?)\h*(\n|$)/ }
 
 # R.Jaksa 2009,2023
+# end "support.pl"
 
 our $HELP=<<EOF;
 
@@ -237,7 +246,12 @@ our %PKG; # package parameters key-value pairs
 our %PKK; # exact original keywords for given key
 our %PKM; # verbose message for given key
 
+# included "config.pl"
+
+# included "parser.pl"
 # GETVERSION PARSERS
+
+# included "tore.pl"
 # to-regex parser: regexes are hard to read, but simple task-specific language
 # can be parsed to regex, and such language can be OK to read...
 #
@@ -270,8 +284,9 @@ sub enre {
   $s =~ s/^\(/((?:^|\\n)/;	# first element starts with (?:^|\n) start of line
   $s =~ s/\)$/(?:\\n|\$))/;	# last element ends with (?:\n|$) end of line
   return $s }
+# end "tore.pl"
 
-{ # ---------------------------------------------------------------------------- PER-LASGUAGE PARSERS
+{ # ---------------------------------------------------------------------------- PER-LANGUAGE PARSERS
 # key/value parsers: value = xyzvar(body,key) # $_[0]=body $_[1]=key
 # return: a value, or (value,used_keyname) pair
 
@@ -361,30 +376,33 @@ our sub getvar {
   local  $CMD = $_[0]; # local to be seen in checkvar
   local $BODY = $_[1]; $BODY = `cat $PKG{file}` if not defined $_[1];
   local  $MSG = "<- ".beautify($PKG{file},$PKG{pwd}); $MSG.=" $_[2]" if defined $_[2];
-  checkvar "PACKAGE","package";
-  checkvar "VERSION","version";
-  checkvar "SUBVERS",   "subversion";
-  checkvar "SUBVERSION","subversion";
-  checkvar "PROJECT","project";
-  checkvar "AUTHOR",   "authors";
-  checkvar "AUTHORS",  "authors";
-  checkvar "COPYRIGHT","authors";
-  checkvar "COPYLEFT", "authors";
-  checkvar "CAPTION","caption";
-  checkvar "BRANCH", "variant";
-  checkvar "VARIANT","variant";
-  return if not $PKG{config}; # the rest are config specific keywords
-  checkvar "SUFFIX","suffix";
-  checkvar "TGZDIR","tgzdir";
-  checkcfg "ONSUBRELEASE","onsubrelease"; # next are arrays = accept multiple lines
-  checkcfg "ONSUB",	  "onsubrelease";
-  checkcfg "ONRELEASE","onrelease";
-  checkcfg "ONREL",    "onrelease";
-  checkcfg "ALWAYS","always" }
+  # ------- VARIABLE -------- KEY -----------
+  checkvar "PACKAGE",	   "package";
+  checkvar "VERSION",	   "version";
+  checkvar "SUBVERS",	   "subversion";
+  checkvar "SUBVERSION",   "subversion";
+  checkvar "PROJECT",	   "project";
+  checkvar "AUTHOR",	   "authors";
+  checkvar "AUTHORS",	   "authors";
+  checkvar "COPYRIGHT",	   "authors";
+  checkvar "COPYLEFT",	   "authors";
+  checkvar "CAPTION",	   "caption";
+  checkvar "BRANCH",	   "variant";
+  checkvar "VARIANT",	   "variant";
+  return if not $PKG{config};		   # the rest are config specific keywords
+  checkvar "SUFFIX",	   "suffix";
+  checkvar "TGZDIR",	   "tgzdir";
+  checkcfg "ONSUBRELEASE", "onsubrelease"; # next are checkcfg arrays = accept multiple lines
+  checkcfg "ONSUB",	   "onsubrelease";
+  checkcfg "ONRELEASE",	   "onrelease";
+  checkcfg "ONREL",	   "onrelease";
+  checkcfg "ALWAYS",	   "always";
+  checkcfg "EXCLUDE",	   "exclude" }
 
 } # -------------------------------------------------------------------------------------------------
 
 # R.Jaksa 2001,2009,2023 GPLv3
+# end "parser.pl"
 
 { # SUBRELEASE CONFIG
 
@@ -470,7 +488,13 @@ our sub subrelease_config {
 } subrelease_config;
 
 # R.Jaksa 2023 GPLv3
+# end "config.pl"
+
 $PKG{$_}=$ARG{$_} and $PKM{$_}="<- CLI arg" for keys %ARG;
+
+# included "identify.pl"
+
+# included "names.pl"
 { # SUBRELEASE NAMES/FILENAMES UTILITIES, required %PKG access
 
 # parse the string to package, delimiter, version
@@ -560,15 +584,18 @@ my sub ziptype {
   elsif($PKG{suffix} =~ /gz$/)  { return "--gzip" }
   return "--lzip" }
 
+# TODO here add tar exclude options
+
 # tar from given dir: tarfrom(inputdir,inputfileordir,outputtar)
 our sub tarfrom { my ($dir,$file,$tar,$cc) = @_; my $zip = ziptype;
-  cmd "tar cf $tar $zip -C $dir $file",$cc; }
+  cmd "tar cf $tar $TAROPT$zip -C $dir $file",$cc; }
 
 # directory tar: tardir(inputdir,outputtar)
 our sub tardir { my ($dir,$tar) = @_; my $zip = ziptype;
-  cmd "tar cf $tar $zip $dir"; }
+  cmd "tar cf $tar $TAROPT$zip $dir"; }
 
 } # R.Jaksa 2001,2021,2023 GPLv3
+# end "names.pl"
 
 { # GETVERSION IDENTIFY
 
@@ -675,6 +702,9 @@ our sub getversion_identify {
 } getversion_identify;
 
 # R.Jaksa 2001,2021,2023 GPLv3
+# end "identify.pl"
+
+# included "next.pl"
 # this works directly on global %PKG
 
 # get_next_sub $release,$archive; inspects release/archive files (relative to tgzdir)
@@ -731,6 +761,7 @@ sub get_next_sub {
   $PKM{next} = "<- $archive"; }
 
 # R.Jaksa 2001,2023 GPLv3
+# end "next.pl"
 
 # get next subversion from the archive file
 our $release = get_release;

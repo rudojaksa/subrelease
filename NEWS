@@ -1,3 +1,5 @@
+0.12  - fixed Makefile, install to /usr/local
+      - added EXCLUDE
 0.11  - version up to the mkdist 0.8...
 0.2   - code cleanup
       - getversion uses next.pl

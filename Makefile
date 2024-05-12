@@ -1,12 +1,14 @@
-SHELL	:= /bin/bash	
-PATH	:= $(PATH):UTIL
 PACKAGE	:= subrelease
-VERSION	:= 0.11
+VERSION	:= 0.12
 PROJECT	:= makeutils
 AUTHORS	:= R.Jaksa 2001,2021,2023 GPLv3
-CAPTION := minimal subrelease snapshotting
-SUBVERS	:= 
-BUILT	:= $(shell echo `date +%Y-%m-%d`)
+CAPTION := directory to package snapshotting
+SUBVERS	:= b
+
+SHELL	:= /bin/bash
+PATH	:= usr/bin:$(PATH)
+PKGNAME	:= $(PACKAGE)-$(VERSION)$(SUBVERSION)
+DATE	:= $(shell date '+%Y-%m-%d')
 
 BIN := getversion subrelease
 SRC := $(BIN:%=%.pl)
@@ -17,8 +19,9 @@ LIB := $(filter-out $(SRC),$(LIB))
 all: $(BIN) $(DOC)
 
 %: %.pl $(LIB) .version.pl .built.%.pl Makefile
-	@echo -e '#!/usr/bin/perl\n' > $@
-	perlpp-simple $< >> $@
+	@echo -e '#!/usr/bin/perl' > $@
+	@echo "# $@ generated from $(PKGNAME)/$< $(DATE)" >> $@
+	pcpp $< >> $@
 	@chmod 755 $@
 
 .version.pl: Makefile
@@ -31,19 +34,22 @@ all: $(BIN) $(DOC)
 
 .PRECIOUS: .built.%.pl
 .built.%.pl: %.pl $(LIB) .version.pl Makefile
-	@echo 'our $$BUILT = "$(BUILT)";' > $@
+	@echo 'our $$BUILT = "$(DATE)";' > $@
 	@echo "update $@"
-
-# install symlinks to private ~/bin
-install: $(BIN) subls
-	@echo install symlinks to ~/bin:
-	@mkdir -p ~/bin
-	@for i in $+; do ln -sf `pwd`/$$i ~/bin/`basename $$i`; done
-	@for i in $+; do ls -l --color ~/bin/`basename $$i`; done
-	@if test ! `echo $$PATH | grep ~/bin`; then echo "~/bin missing in your PATH: $$PATH"; fi
 
 $(DOC): doc/%.md: % | doc
 	$< -h | man2md > $@
+
+# /map install (also subls)
+ifneq ($(wildcard /map),)
+install: $(BIN) subls
+	mapinstall -v /box/$(PROJECT)/$(PKGNAME) /map/$(PACKAGE) bin $^
+
+# /usr/local install
+else
+install: $(BIN)
+	install $^ /usr/local/bin
+endif
 
 clean:
 	rm -f .version.pl
@@ -53,4 +59,4 @@ mrproper: clean
 	rm -f $(BIN)
 	rm -f $(DOC)
 
-include ~/.gitlab/Makefile.git
+-include ~/.github/Makefile.git

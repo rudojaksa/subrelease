@@ -21,6 +21,7 @@ my sub prnt_ { my ($c1,$c2,$k,$v,$c) = @_;
 # prnt "key",$var,"comment";
 our sub prnt   { prnt_ "",$CD_,@_ }				# default color
 our sub prntg  { prnt_ "",$CG_,@_ }				# green
+our sub prntr  { prnt_ $CR_,$CR_,@_ }				# red
 our sub prntfn { prnt_ "",$CK_,$_[0],defgrfn($_[1]),$_[2]; }	# filename debug
 
 # debug "key",$var,"comment";
@@ -46,7 +47,7 @@ our sub prnt_logo {
 my @ORDER = ("file","language","package","project","version","subversion","next","variant",
 	     "pkgname","fullname","major","minor","mtype","delimiter","dot","pwd","config2",
 	     "config1","config","tmpdir","tgzdir","suffix","authors","caption","always",
-	     "onsubrelease","onrelease");
+	     "onsubrelease","onrelease","exclude");
 
 # prel $key,$val,$msg; prints single element for debughash
 my sub prel {
