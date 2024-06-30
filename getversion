@@ -1,17 +1,114 @@
 #!/usr/bin/perl
-# getversion generated from subrelease-0.12/getversion.pl 2024-05-10
-
-# included ".built.getversion.pl"
-our $BUILT = "2024-05-10";
-# end ".built.getversion.pl"
+# getversion generated from subrelease-0.12/getversion.pl 2024-06-30
 
 # included ".version.pl"
 our $PACKAGE = "subrelease";
 our $VERSION = "0.12";
-our $PROJECT = "makeutils";
 our $AUTHOR = "R.Jaksa 2001,2021,2023 GPLv3";
-our $SUBVERSION = "";
+our $SUBVERSION = "c";
 # end ".version.pl"
+
+# included ".getversion.built.pl"
+our $BUILT = "2024-06-30";
+# end ".getversion.built.pl"
+
+our $HELP=<<EOF;
+
+NAME
+    getversion - get package version info for current directory
+
+USAGE
+    getversion [OPTIONS]
+
+DESCRIPTION
+    The getversion utility auto-detects the version information for
+    the package rooted in current directory.  It does so by the
+    examination of present configuration files, or directory names.
+
+OPTIONS
+      -h  This help.
+    -pkg  Name of the package.
+    -ver  Version number of the package.
+    -sub  Subversion number of the package.
+   -next  Next subversion number.
+    -prj  Name of the project for this package.
+    -pnm  Full package name including the version number.
+    -cpy  Copyleft)CK(/)copyright announcement of the package.
+    -del  The dot character between package name and version [.-].
+    -src  File where the version info is defined.
+    -cap  Package caption message.
+    -lng  Language of the info file.
+  CK(-t DIR)  CK(Target directory instead of ../tgz (for correct next).)
+     CK(-bw)  CK(Black \& white.)
+#CC(-pl/py/c)  Will generate config in perl/python/c (also CC(-make/com)). TODO
+#   -full  Will generate full configs. TODO
+
+C LANGUAGE
+    Files CG(VERSION.h), then CG(CONFIG.h) or singlefile package:
+    CW(#define PACKAGE \"package-name\")
+    CW(#define VERSION \"1.13\" /* comment */)
+    CW(#define PROJECT \"project-name\" // comment)
+    CW(#define AUTHORS \"The.Author 1996\")
+
+PERL
+    Files CG(VERSION.pl), then CG(CONFIG.pl) or singlefile scripts, but also
+    looks for the first perl file with CC(\$PACKAGE=...) line:
+    CW(\$PACKAGE=\"package-name\";)
+    CW(\$VERSION=\"1.13\";)
+    CW(\$PROJECT=\"project-name\"; # comment)
+    CW(\$COPYLEFT=\"(c) The.Author 1999, GPL\";)
+
+SHELL OR PYTHON
+    Shell singlefile scripts, or python files CG(VERSION.py), CG(CONFIG.py),
+    or python singlefile scripts:
+    CW(PACKAGE=\"package-name\")
+    CW(VERSION=\"1.13\")
+    CW(PROJECT=\"project-name\" # comment)
+    CW(AUTHOR=\"(c) The.Author 2003\")
+
+MAKEFILE
+    CW(PACKAGE := package-name)
+    CW(VERSION := 1.13)
+    CW(PROJECT := project-name # comment)
+    CW(AUTHORS := The.Author 2016)
+
+VERSION FILE
+    Language-independent CG(VERSION) file:
+    CW(PACKAGE: package-name)
+    CW(VERSION: 1.13)
+    CW(AUTHORS: Author1, Author2, 2010 # comment)
+
+HEAD-COMMENT
+    A note in the head-comment of singlefile (comment in first ten
+    lines) found by keywords: Version, Copyleft, Copyright, (c), (C):
+    CW(/* Package ABC Version 2.13, Subversion c, (c) A.Qwerty 2011*/)
+
+KEYWORDS
+    CD(PACKAGE)
+    CD(VERSION)
+    CD(SUBVERS SUBVERSION)
+    CD(PROJECT)
+    CD(AUTHORS AUTHOR COPYLEFT COPYRIGHT)
+    CD(CAPTION)
+    CD(VARIANT BRANCH)
+    CK(SUFFIX) (the rest are config only, CG(VERSION) file or CG(.subrelease))
+    CK(TGZDIR)
+    CK(ALWAYS)
+    CK(ONREL ONRELEASE)
+    CK(ONSUB ONSUBRELEASE)
+
+MULTI-LANGUAGE
+    For multi-language packages use automatic conversion from the
+    master file (Makefile, CD(VERSION) or even CD(VERSION.h)) into language
+    specific temporary/hidden includes: CG(.version.pl) or CG(.version.py) ...
+
+SEE ALSO
+    CW(subrelease -h)
+
+VERSION
+    $PACKAGE-$VERSION$SUBVERSION $CK_$AUTHOR$CD_ $CK_(built $BUILT)$CD_
+
+EOF
 
 # included "support.pl"
 
@@ -125,104 +222,6 @@ sub cfgval { return $2 if $_[0]=~/(^|\n)\h*$_[1]\h*:\h+(.+?)\h*(\n|$)/ }
 # R.Jaksa 2009,2023
 # end "support.pl"
 
-our $HELP=<<EOF;
-
-NAME
-    getversion - get package version info for current directory
-
-USAGE
-    getversion [OPTIONS]
-
-DESCRIPTION
-    The getversion utility auto-detects the version information for
-    the package rooted in current directory.  It does so by the
-    examination of present configuration files, or directory names.
-
-OPTIONS
-      -h  This help.
-    -pkg  Name of the package.
-    -ver  Version number of the package.
-    -sub  Subversion number of the package.
-   -next  Next subversion number.
-    -prj  Name of the project for this package.
-    -pnm  Full package name including the version number.
-    -cpy  Copyleft)CK(/)copyright announcement of the package.
-    -del  The dot character between package name and version [.-].
-    -src  File where the version info is defined.
-    -cap  Package caption message.
-    -lng  Language of the info file.
-  CK(-t DIR)  CK(Target directory instead of ../tgz (for correct next).)
-     CK(-bw)  CK(Black \& white.)
-#CC(-pl/py/c)  Will generate config in perl/python/c (also CC(-make/com)). TODO
-#   -full  Will generate full configs. TODO
-
-C LANGUAGE
-    Files CG(VERSION.h), then CG(CONFIG.h) or singlefile package:
-    CW(#define PACKAGE \"package-name\")
-    CW(#define VERSION \"1.13\" /* comment */)
-    CW(#define PROJECT \"project-name\" // comment)
-    CW(#define AUTHORS \"The.Author 1996\")
-
-PERL
-    Files CG(VERSION.pl), then CG(CONFIG.pl) or singlefile scripts, but also
-    looks for the first perl file with CC(\$PACKAGE=...) line:
-    CW(\$PACKAGE=\"package-name\";)
-    CW(\$VERSION=\"1.13\";)
-    CW(\$PROJECT=\"project-name\"; # comment)
-    CW(\$COPYLEFT=\"(c) The.Author 1999, GPL\";)
-
-SHELL OR PYTHON
-    Shell singlefile scripts, or python files CG(VERSION.py), CG(CONFIG.py),
-    or python singlefile scripts:
-    CW(PACKAGE=\"package-name\")
-    CW(VERSION=\"1.13\")
-    CW(PROJECT=\"project-name\" # comment)
-    CW(AUTHOR=\"(c) The.Author 2003\")
-
-MAKEFILE
-    CW(PACKAGE := package-name)
-    CW(VERSION := 1.13)
-    CW(PROJECT := project-name # comment)
-    CW(AUTHORS := The.Author 2016)
-
-VERSION FILE
-    Language-independent CG(VERSION) file:
-    CW(PACKAGE: package-name)
-    CW(VERSION: 1.13)
-    CW(AUTHORS: Author1, Author2, 2010 # comment)
-
-HEAD-COMMENT
-    A note in the head-comment of singlefile (comment in first ten
-    lines) found by keywords: Version, Copyleft, Copyright, (c), (C):
-    CW(/* Package ABC Version 2.13, Subversion c, (c) A.Qwerty 2011*/)
-
-KEYWORDS
-    CD(PACKAGE)
-    CD(VERSION)
-    CD(SUBVERS SUBVERSION)
-    CD(PROJECT)
-    CD(AUTHORS AUTHOR COPYLEFT COPYRIGHT)
-    CD(CAPTION)
-    CD(VARIANT BRANCH)
-    CK(SUFFIX) (the rest are config only, CG(VERSION) file or CG(.subrelease))
-    CK(TGZDIR)
-    CK(ALWAYS)
-    CK(ONREL ONRELEASE)
-    CK(ONSUB ONSUBRELEASE)
-
-MULTI-LANGUAGE
-    For multi-language packages use automatic conversion from the
-    master file (Makefile, CD(VERSION) or even CD(VERSION.h)) into language
-    specific temporary/hidden includes: CG(.version.pl) or CG(.version.py) ...
-
-SEE ALSO
-    CW(subrelease -h)
-
-VERSION
-    $PACKAGE-$VERSION$SUBVERSION $CK_$AUTHOR$CD_ $CK_(built $BUILT)$CD_
-
-EOF
-
 $CR_=$CG_=$CC_=$CM_=$CW_=$CK_=$CD_="" if clar \@ARGV,"-bw";
 printhelp if clar \@ARGV,"-h";
 
@@ -314,8 +313,8 @@ our sub shvar { my ($s,$k) = @_;
 our sub pythonvar { shvar @_ }
 
 our sub makevar { my ($s,$k) = @_;
-  my $re1 = tore 'BGN~',$k,'~:?=~"([^"\n]*)"';			# quoted
-  my $re2 = tore 'BGN~',$k,'~:?=~([^#]*?)~(?:#.*)?END';		# plain (w comment)
+  my $re1 = tore 'BGN~',$k,'~:?=~"([^"\$\n]*)"';		# quoted ($ is forbidden)
+  my $re2 = tore 'BGN~',$k,'~:?=~([^#\$]*?)~(?:#.*)?END';	# plain (w comment)
   return $1 if $s =~ /$re1/;
   return $1 if $s =~ /$re2/;
   return }

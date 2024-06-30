@@ -84,5 +84,5 @@ autodetected by getversion.
 getversion -h
 
 ### VERSION
-subrelease-0.12 R.Jaksa 2001,2021,2023 GPLv3 built 2024-05-10
+subrelease-0.12c R.Jaksa 2001,2021,2023 GPLv3 built 2024-06-30
 

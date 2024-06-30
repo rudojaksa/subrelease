@@ -1,3 +1,4 @@
+0.13  - fixed Makefile PROJECT:=$(shell getversion -prj)
 0.12  - fixed Makefile, install to /usr/local
       - added EXCLUDE
 0.11  - version up to the mkdist 0.8...

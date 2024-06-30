@@ -1,4 +1,4 @@
-# include .built.getversion.pl .version.pl support.pl
+# include .version.pl .getversion.built.pl
 
 our $HELP=<<EOF;
 
@@ -97,6 +97,8 @@ VERSION
     $PACKAGE-$VERSION$SUBVERSION $CK_$AUTHOR$CD_ $CK_(built $BUILT)$CD_
 
 EOF
+
+# include support.pl
 
 $CR_=$CG_=$CC_=$CM_=$CW_=$CK_=$CD_="" if clar \@ARGV,"-bw";
 printhelp if clar \@ARGV,"-h";

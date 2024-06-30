@@ -29,8 +29,8 @@ our sub shvar { my ($s,$k) = @_;
 our sub pythonvar { shvar @_ }
 
 our sub makevar { my ($s,$k) = @_;
-  my $re1 = tore 'BGN~',$k,'~:?=~"([^"\n]*)"';			# quoted
-  my $re2 = tore 'BGN~',$k,'~:?=~([^#]*?)~(?:#.*)?END';		# plain (w comment)
+  my $re1 = tore 'BGN~',$k,'~:?=~"([^"\$\n]*)"';		# quoted ($ is forbidden)
+  my $re2 = tore 'BGN~',$k,'~:?=~([^#\$]*?)~(?:#.*)?END';	# plain (w comment)
   return $1 if $s =~ /$re1/;
   return $1 if $s =~ /$re2/;
   return }

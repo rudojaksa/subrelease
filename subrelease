@@ -1,17 +1,111 @@
 #!/usr/bin/perl
-# subrelease generated from subrelease-0.12/subrelease.pl 2024-05-10
-
-# included ".built.subrelease.pl"
-our $BUILT = "2024-05-10";
-# end ".built.subrelease.pl"
+# subrelease generated from subrelease-0.12/subrelease.pl 2024-06-30
 
 # included ".version.pl"
 our $PACKAGE = "subrelease";
 our $VERSION = "0.12";
-our $PROJECT = "makeutils";
 our $AUTHOR = "R.Jaksa 2001,2021,2023 GPLv3";
-our $SUBVERSION = "";
+our $SUBVERSION = "c";
 # end ".version.pl"
+
+# included ".subrelease.built.pl"
+our $BUILT = "2024-06-30";
+# end ".subrelease.built.pl"
+
+our $HELP=<<EOF;
+
+NAME
+    subrelease - snapshot current directory to package or subrel. archive
+
+USAGE
+    subrelease [OPTIONS] CK([PKGNAME])
+
+DESCRIPTION
+    Subrelease makes a snapshot package from the content of current
+    directory to the CG(PKGNAME.tlz) file in CG(../tgz), or CG(..) directories. The
+    PKGNAME is optional, as the version, subversion and package name are
+    autodetected by CC(getversion).  
+
+OPTIONS
+    -h  This help.
+    CK(-d)  CK(Debug.)
+    -f  Forced no-questions noninteractive mode.
+    -q  Query mode, don't write any files.
+    -c  Run CC(make clean) before packing (dangerous with faulty Makefile).
+    -R  Rewrite the release package, don\'t make subversions.
+#   -r  Release, increment the minor number. TODO
+    -s  Save a snapshot, not archive subversion, like CG(pkg-1.4c.tlz).
+-s STR  Save given variant snapshot, like CG(pkg-1.4.variant.tlz).
+-v STR  Just set a variant.
+-t DIR  Target directory instead of CG(../tgz).
+   -nb  No backups in CG(../tgz).
+   -nt  No tmp-backups in CG(/tmp/subrelease).
+   CK(-bw)  CK(Black \& white.)
+
+SUBVERSIONS
+    If the archive CG(pkg-1.4.tlz) already exists, the subversions archive
+    CG(pkg.1.4.xlz) will be created with subversions CC(1.4a), CC(1.4b) inside.
+    The subversion value is automatically incremented in its source
+    file pointed out by getversion.
+
+FILES
+    CG(pkg-1.4.tlz)   The .tar.lz release package.
+    CG(pkg-1.4c.tlz)  Subrelease c snapshot of package.
+    CG(pkg-1.4.xlz)   The .tar.lz archive containing subrelease snapshots.
+    CG(pkg-1.4.sub)CK(/)CG(pkg-1.4c)  Particular subrelease snapshot subdir.
+    CG(pkg-1.4.sub)CK(/)CG(pkg-1.4c.david)  Specific variant "david" (a branch).
+    CG(pkg-1.4c.beta.tlz)  Variant "beta" of version 1.4 of package pkg.
+    CK(anything.bkp)  CK(Backup of previous version of given file.)
+
+CONFIG
+    The CG(.subrelease) file from the home directory and from the first
+    parent directory is used as a config file for the subrelease run.  
+    Syntax is the same as for the CG(VERSION) file (see getversion -h).
+    Config-specific keywords are SUFFIX, TGZDIR, EXCLUDE and keywords
+    ALWAYS, ONRELEASE and ONSUBRELEASE to define scripts to run.
+    Possible suffixes for the archive files are:
+
+                CK(short)           CK(full suffix)
+            CK(+-------------+-----------------------+)
+            CK(|  .)CD(tgz)CK( .xgz  |  .tar.)CD(gz)CK( .sub.tar.gz  |)
+            CK(| .)CD(tbz2)CK( .xbz2 | .tar.)CD(bz2)CK( .sub.tar.bz2 |)
+    default CK(|  .)CC(tlz)CK( .xlz  |  .tar.)CD(lz)CK( .sub.tar.lz  |)
+            CK(| .)CD(tzst)CK( .xzst | .tar.)CD(zst)CK( .sub.tar.zst |)
+            CK(+-------------+-----------------------+)
+               rel.  CK(arch.)   release   CK(archive)
+
+    Examples of scripts defintion with automatic variables:
+    CW(ALWAYS: echo `date -I` %P %f >> /var/log/subrelease.log)
+    CW(ONSUBRELEASE: ~/util/mknews ./Changelog)
+    CW(ONRELEASE: scp %f server:/archive/%x/)
+
+    CC(%f)  filename, CC(%F) full path, CC(%d) tgzdir
+    CC(%v)  version, CC(%V) full version incl. subversion, CC(%s) subversion
+    CC(%p)  package name, CC(%P) w. version, CC(%b) variant/branch, CC(%B) w. branch
+    CC(%a)  authors, CC(%c) caption, CC(%x) project, CC(%l) language
+    CC(%%)  the % character
+
+    The EXCLUDE allows to exclude specified files from being archived.
+    Exclude patterns are space separated glob patterns, can be quoted
+    with double quotes:
+    CW(EXCLUDE: .git *.png "copy of *")
+
+RECOVERY
+    In case of error (No space left on device, etc.) the re-packaging
+    might be stopped in the middle.  For recovery check CC(.bkp) files in
+    the CG(../tgz) or CG(..) directories.  Before any subrelease work (before
+    the CC(make clean) etc.) copy of current dir is stored in the
+    CG(/tmp/subrelease) under a snapshot name.
+
+SEE ALSO
+    CW(getversion -h)
+
+VERSION
+    $PACKAGE-$VERSION$SUBVERSION CK($AUTHOR) CK(built $BUILT)
+
+EOF
+
+# ============================================================================================== ARGV
 
 # included "support.pl"
 
@@ -125,100 +219,6 @@ sub cfgval { return $2 if $_[0]=~/(^|\n)\h*$_[1]\h*:\h+(.+?)\h*(\n|$)/ }
 # R.Jaksa 2009,2023
 # end "support.pl"
 
-our $HELP=<<EOF;
-
-NAME
-    subrelease - snapshot current directory to package or subrel. archive
-
-USAGE
-    subrelease [OPTIONS] CK([PKGNAME])
-
-DESCRIPTION
-    Subrelease makes a snapshot package from the content of current
-    directory to the CG(PKGNAME.tlz) file in CG(../tgz), or CG(..) directories. The
-    PKGNAME is optional, as the version, subversion and package name are
-    autodetected by CC(getversion).  
-
-OPTIONS
-    -h  This help.
-    CK(-d)  CK(Debug.)
-    -f  Forced no-questions noninteractive mode.
-    -q  Query mode, don't write any files.
-    -c  Run CC(make clean) before packing (dangerous with faulty Makefile).
-    -R  Rewrite the release package, don\'t make subversions.
-#   -r  Release, increment the minor number. TODO
-    -s  Save a snapshot, not archive subversion, like CG(pkg-1.4c.tlz).
--s STR  Save given variant snapshot, like CG(pkg-1.4.variant.tlz).
--v STR  Just set a variant.
--t DIR  Target directory instead of CG(../tgz).
-   -nb  No backups in CG(../tgz).
-   -nt  No tmp-backups in CG(/tmp/subrelease).
-   CK(-bw)  CK(Black \& white.)
-
-SUBVERSIONS
-    If the archive CG(pkg-1.4.tlz) already exists, the subversions archive
-    CG(pkg.1.4.xlz) will be created with subversions CC(1.4a), CC(1.4b) inside.
-    The subversion value is automatically incremented in its source
-    file pointed out by getversion.
-
-FILES
-    CG(pkg-1.4.tlz)   The .tar.lz release package.
-    CG(pkg-1.4c.tlz)  Subrelease c snapshot of package.
-    CG(pkg-1.4.xlz)   The .tar.lz archive containing subrelease snapshots.
-    CG(pkg-1.4.sub)CK(/)CG(pkg-1.4c)  Particular subrelease snapshot subdir.
-    CG(pkg-1.4.sub)CK(/)CG(pkg-1.4c.david)  Specific variant "david" (a branch).
-    CG(pkg-1.4c.beta.tlz)  Variant "beta" of version 1.4 of package pkg.
-    CK(anything.bkp)  CK(Backup of previous version of given file.)
-
-CONFIG
-    The CG(.subrelease) file from the home directory and from the first
-    parent directory is used as a config file for the subrelease run.  
-    Syntax is the same as for the CG(VERSION) file (see getversion -h).
-    Config-specific keywords are SUFFIX, TGZDIR, EXCLUDE and keywords
-    ALWAYS, ONRELEASE and ONSUBRELEASE to define scripts to run.
-    Possible suffixes for the archive files are:
-
-                CK(short)           CK(full suffix)
-            CK(+-------------+-----------------------+)
-            CK(|  .)CD(tgz)CK( .xgz  |  .tar.)CD(gz)CK( .sub.tar.gz  |)
-            CK(| .)CD(tbz2)CK( .xbz2 | .tar.)CD(bz2)CK( .sub.tar.bz2 |)
-    default CK(|  .)CC(tlz)CK( .xlz  |  .tar.)CD(lz)CK( .sub.tar.lz  |)
-            CK(| .)CD(tzst)CK( .xzst | .tar.)CD(zst)CK( .sub.tar.zst |)
-            CK(+-------------+-----------------------+)
-               rel.  CK(arch.)   release   CK(archive)
-
-    Examples of scripts defintion with automatic variables:
-    CW(ALWAYS: echo `date -I` %P %f >> /var/log/subrelease.log)
-    CW(ONSUBRELEASE: ~/util/mknews ./Changelog)
-    CW(ONRELEASE: scp %f server:/archive/%x/)
-
-    CC(%f)  filename, CC(%F) full path, CC(%d) tgzdir
-    CC(%v)  version, CC(%V) full version incl. subversion, CC(%s) subversion
-    CC(%p)  package name, CC(%P) w. version, CC(%b) variant/branch, CC(%B) w. branch
-    CC(%a)  authors, CC(%c) caption, CC(%x) project, CC(%l) language
-    CC(%%)  the % character
-
-    The EXCLUDE allows to exclude specified files from being archived.
-    Exclude patterns are space separated glob patterns, can be quoted
-    with double quotes:
-    CW(EXCLUDE: .git *.png "copy of *")
-
-RECOVERY
-    In case of error (No space left on device, etc.) the re-packaging
-    might be stopped in the middle.  For recovery check CC(.bkp) files in
-    the CG(../tgz) or CG(..) directories.  Before any subrelease work (before
-    the CC(make clean) etc.) copy of current dir is stored in the
-    CG(/tmp/subrelease) under a snapshot name.
-
-SEE ALSO
-    CW(getversion -h)
-
-VERSION
-    $PACKAGE-$VERSION$SUBVERSION CK($AUTHOR) CK(built $BUILT)
-
-EOF
-
-# ============================================================================================== ARGV
 $CR_=$CG_=$CC_=$CM_=$CW_=$CK_=$CD_="" if clar \@ARGV,"-bw";
 printhelp if clar \@ARGV,"-h";
 
@@ -416,8 +416,8 @@ our sub shvar { my ($s,$k) = @_;
 our sub pythonvar { shvar @_ }
 
 our sub makevar { my ($s,$k) = @_;
-  my $re1 = tore 'BGN~',$k,'~:?=~"([^"\n]*)"';			# quoted
-  my $re2 = tore 'BGN~',$k,'~:?=~([^#]*?)~(?:#.*)?END';		# plain (w comment)
+  my $re1 = tore 'BGN~',$k,'~:?=~"([^"\$\n]*)"';		# quoted ($ is forbidden)
+  my $re2 = tore 'BGN~',$k,'~:?=~([^#\$]*?)~(?:#.*)?END';	# plain (w comment)
   return $1 if $s =~ /$re1/;
   return $1 if $s =~ /$re2/;
   return }

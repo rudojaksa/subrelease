@@ -12,7 +12,7 @@ today, even alongside git.
 The inspiration came when somebody told me that compressing a file once or
 ten times is the same.
 
-![](doc/size.png) <!--[![](doc/size.png)](doc/size.csv)-->
+![](img/size.png) <!--[![](img/size.png)](img/size.csv)-->
 
 #### Usage
 
@@ -32,8 +32,8 @@ Subrelease itself does:
 3. saves package snapshot into an archive or a release file (automatically),
 4. increments subrelease variable value if needed (automatically).
 
-<!-- ![](doc/sshot.png)-->
-<img src=doc/sshot.png/ width=750px>
+<!-- ![](img/sshot.png)-->
+<img src=img/sshot.png/ width=750px>
 
 #### Archive files
 
@@ -49,8 +49,8 @@ if it exists.
 
 Typical subrelease history and saved files would be:
 
-<!-- ![](doc/hist.png)-->
-<img src=doc/hist.png/ width=720px>
+<!-- ![](img/hist.png)-->
+<img src=img/hist.png/ width=720px>
 
 #### Variants
 
@@ -61,8 +61,8 @@ decide to turn off beta status, just remove the flag and call the subrelease.
 You will have beta release and main release packages, and a common archive for
 beta and main subreleases:
 
-<!-- ![](doc/beta.png)-->
-<img src=doc/beta.png/ width=720px>
+<!-- ![](img/beta.png)-->
+<img src=img/beta.png/ width=720px>
 
 Variant flags can be used to create temporary experimental variants of the package
 to be eventually merged back later.  In the following example, we copy the
@@ -72,8 +72,8 @@ Then on the next subrelease call, we got the local initial release of the varian
 with a new subrelease c.  This subrelease c and the main package subrelease c are
 different.  Archives are different as well, although having the same name.
 
-<!-- ![](doc/branch.png)-->
-<img src=doc/branch.png/ width=720px>
+<!-- ![](img/branch.png)-->
+<img src=img/branch.png/ width=720px>
 
 Archive names do not contain a variant string, to allow to freely change the variant
 string from subversion to subversion.
@@ -102,7 +102,7 @@ $COPYLEFT="(c) The.Author 1999, GPL";
 
 Accompanying script `getversion` can inspect these reserved variables.  It
 checks `VERSION.h` or `CONFIG.h` files, or `VERSION.pl`, `VERSION.py`, etc. for
-other languages.  See [`getversion -h`](doc/getversion.md) for a description of
+other languages.  See [`getversion -h`](getversion.md) for a description of
 the syntax for other languages.
 
 For multi-language applications, the `Makefile` can be used to hold variables,
@@ -133,7 +133,7 @@ Config files also recognize a few more variables.  To preserve the namespace of
 application code these are config-files only, visible only in `.subrelease` or
 `VERSION` files:
 
-&emsp; `SUFFIX` the archive suffix, see [`subrelease -h`](doc/subrelease.md) for the list of suffixes,  
+&emsp; `SUFFIX` the archive suffix, see [`subrelease -h`](subrelease.md) for the list of suffixes,  
 &emsp; `TGZDIR` target directory, instead of the default `../tgz` or `..`,  
 &emsp; `EXCLUDE` exclude specified files from being archived,  
 &emsp; `ALWAYS` the script/command to be fired at the and of every `subrelease` run,  
@@ -168,8 +168,8 @@ file etc. at the same time, to control their visibility.
 
 #### See also
 
-&nbsp;&nbsp; [subrelease -h](doc/subrelease.md)  
-&nbsp;&nbsp; [getversion -h](doc/getversion.md)  
+&nbsp;&nbsp; [subrelease -h](subrelease.md)  
+&nbsp;&nbsp; [getversion -h](getversion.md)  
 
 #### Installation
 

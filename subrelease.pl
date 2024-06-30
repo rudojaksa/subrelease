@@ -1,4 +1,4 @@
-# include .built.subrelease.pl .version.pl support.pl
+# include .version.pl .subrelease.built.pl
 
 our $HELP=<<EOF;
 
@@ -94,6 +94,8 @@ VERSION
 EOF
 
 # ============================================================================================== ARGV
+# include support.pl
+
 $CR_=$CG_=$CC_=$CM_=$CW_=$CK_=$CD_="" if clar \@ARGV,"-bw";
 printhelp if clar \@ARGV,"-h";
 
